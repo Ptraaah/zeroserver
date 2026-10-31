@@ -4,6 +4,8 @@ Kirim file langsung dari browser ke browser. Tanpa server file, tanpa akun, tanp
 
 Send files directly from one browser to another. No file server, no account, no size cap set by any service. (English summary below.)
 
+[Live site](https://ptraaah.github.io/zeroserver/) · [Download the latest release](https://github.com/Ptraaah/zeroserver/releases) · [Support on Trakteer](https://trakteer.id/adel_putra2)
+
 ## What it is
 
 ZeroServer does the job people know from WeTransfer — pick files, share one link, the other side downloads — with the opposite architecture: there is no server holding your files. The sender opens one web page, picks files, and gets a link and a QR code. The receiver opens the link and the files stream straight from the sender's device to the receiver's device over an encrypted WebRTC data channel.
@@ -26,11 +28,12 @@ Copy `index.html` to any static host — GitHub Pages, Cloudflare Pages, Netlify
 
 ## How a transfer works
 
-1. The sender picks one or more files and presses "Buat link kirim" (Create send link).
+1. The sender picks one or more files — or a whole folder — and presses "Buat link kirim" (Create send link).
 2. The page creates a one-time peer ID and shows a link plus QR code. The sender shares the link, e.g. via WhatsApp.
 3. The receiver opens the link, sees the file list and total size, and presses "Terima file" (Accept files). If the browser supports it, they pick where each file should be saved.
-4. Files stream device-to-device with progress, speed, and time remaining shown on both sides.
+4. Files stream device-to-device with progress, speed, and time remaining shown on both sides. While a transfer runs, the page uses the Wake Lock API to keep the screen on, so a phone falling asleep does not cut the transfer.
 5. Each file is verified with SHA-256 at the end. A green badge means the copy is identical to the original.
+6. If the connection drops mid-transfer, the receiver can reconnect to the same link. Files that already passed verification are skipped; only the file that was interrupted starts over.
 
 ## Known limits
 
@@ -55,3 +58,9 @@ MIT — see [LICENSE](LICENSE). Copyright (c) ptraaa.
 ### English summary
 
 ZeroServer is a single-file, open-source web page for sending files directly between two browsers over WebRTC. No file server, no accounts, no service-imposed size cap, and an end-to-end SHA-256 integrity check on every file. The sender must stay online during the transfer; v1 is STUN-only, so a minority of networks cannot connect directly; Chrome/Android is the best-supported receiving browser for very large files. Self-hosting is copying one HTML file to any static host.
+
+## Changelog
+
+**v1.1** — Wake Lock keeps the screen on during a transfer; send a whole folder at once; Open Graph / Twitter link previews; a "share this tool" button; resume after reconnect — if the connection drops, the receiver can reconnect to the same link and already-verified files are skipped instead of resent.
+
+**v1.0** — First release: one-link peer-to-peer file transfer with per-file SHA-256 verification and a connection-test panel.
