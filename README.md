@@ -17,7 +17,7 @@ The interface is Indonesian by default with an English toggle, and it is mobile-
 ## No-server architecture
 
 - The whole product is a single static HTML file. It loads two open-source libraries from a CDN (PeerJS for signalling, qrcode-generator for the QR code) and otherwise runs entirely in the browser.
-- PeerJS's public broker introduces the two browsers to each other (signalling only). After that, file data never touches any server: it flows peer-to-peer over a DTLS-encrypted WebRTC data channel, using public STUN servers to find a path.
+- PeerJS's public broker introduces the two browsers to each other (signalling only). After that, file data never touches any server: it flows peer-to-peer over a DTLS-encrypted WebRTC data channel, using public STUN servers to find a path. Since v1.3, when no direct path exists, short-lived TURN credentials minted by a small worker let the connection relay through Cloudflare instead of failing; the relay forwards the same encrypted traffic and cannot read it.
 - Files are sent in 256 KB chunks with flow control. The receiver hashes every chunk as it arrives, so the final integrity check covers the exact bytes received.
 - On Chrome and Android, received files stream straight to disk through the File System Access API. Browsers without it (Firefox, Safari) stream into the browser's origin-private on-device storage (OPFS) instead and offer the finished file as a download; only when neither API exists is a file held in memory.
 - The page includes a small connection-test panel: it shows whether the connection ran direct or via relay, how much moved, at what speed, and copies a plain-text result you can share for debugging.
@@ -43,7 +43,7 @@ ZeroServer will never add accounts, ads, or features locked behind a paywall. It
 ## Known limits
 
 - **The sender must stay online.** There is no store-and-forward: if the sender closes the tab or loses connection, the transfer stops. ZeroServer is a live handoff tool — best while you are on a chat or call with the other person.
-- **Some networks will not connect in v1.** Version 1 uses STUN only, with no relay (TURN) server. Most home and mobile connections connect directly, but strict corporate firewalls and some carrier NAT setups can block a direct path. If a connection fails, try another network (e.g. switch between mobile data and Wi-Fi).
+- **Some networks still will not connect.** Since v1.3 a TURN relay catches most connections that cannot go direct (strict NAT, carrier CGNAT), but the relay runs on a free quota with a hard ceiling: if it is ever exhausted or unreachable, ZeroServer falls back to direct-only rather than running up a bill, and a few very strict firewalls can still block everything. If a connection fails, try another network (e.g. switch between mobile data and Wi-Fi).
 - **Large files outside Chrome need care.** Without the File System Access API, ZeroServer streams into OPFS on-device storage where that exists (Firefox), so big files no longer sit in RAM. Only browsers with neither API hold incoming files in memory, and there a file over roughly 300 MB can crash the tab. For the biggest files, receive in Chrome on Android or desktop Chrome.
 - One receiver per link in v1, and no transfer history or accounts — by design.
 
@@ -62,7 +62,7 @@ MIT — see [LICENSE](LICENSE). Copyright (c) ptraaa.
 
 ### English summary
 
-ZeroServer is a single-file, open-source web page for sending files directly between two browsers over WebRTC. No file server, no accounts, no service-imposed size cap, and an end-to-end SHA-256 integrity check on every file. The sender must stay online during the transfer; v1 is STUN-only, so a minority of networks cannot connect directly; Chrome/Android is the best-supported receiving browser for very large files. Self-hosting is copying one HTML file to any static host.
+ZeroServer is a single-file, open-source web page for sending files directly between two browsers over WebRTC. No file server, no accounts, no service-imposed size cap, and an end-to-end SHA-256 integrity check on every file. The sender must stay online during the transfer; a TURN relay (since v1.3) catches most networks that cannot connect directly, but a few strict firewalls can still block a connection; Chrome/Android is the best-supported receiving browser for very large files. Self-hosting is copying one HTML file to any static host.
 
 ## Changelog
 
