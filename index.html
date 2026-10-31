@@ -93,6 +93,11 @@
     <p data-i18n="honest4"></p>
   </div>
 
+  <div class="warn hidden" id="wvBanner">
+    <p style="margin:0 0 8px" data-i18n="wvText"></p>
+    <button class="btn ghost small" id="wvCopy" type="button"><span data-i18n="copyLink"></span></button>
+  </div>
+
   <!-- ============ SENDER VIEW ============ -->
   <section id="view-send">
     <div class="card">
@@ -125,7 +130,18 @@
       </div>
       <div class="qrbox" id="qrBox"></div>
       <p class="status" id="sendStatus"></p>
+      <span class="badge ok hidden" id="wifiBadgeS" data-i18n="wifiBadge" style="margin-bottom:6px"></span>
       <p class="sub" data-i18n="keepOpen"></p>
+      <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+        <label class="sub" for="pinSet" data-i18n="pinSetLabel" style="font-weight:600"></label>
+        <input class="linkbox" id="pinSet" inputmode="numeric" autocomplete="off" maxlength="4" style="margin:6px 0 2px">
+        <p class="sub" data-i18n="pinSetHint" style="margin:2px 0 0"></p>
+        <label class="rowline" style="margin-top:12px"><input type="checkbox" id="oneShotSet"> <span data-i18n="oneShotLabel"></span></label>
+        <p class="sub" data-i18n="oneShotHint" style="margin:2px 0 0"></p>
+        <label class="rowline" style="margin-top:12px"><input type="checkbox" id="expireSet"> <span data-i18n="expireLabel"></span></label>
+        <p class="sub" data-i18n="expireHint" style="margin:2px 0 0"></p>
+        <p class="sub hidden" id="linkTimer" style="margin-top:8px;font-weight:600"></p>
+      </div>
       <div id="sendProgress"></div>
       <div style="margin-top:12px">
         <button class="btn ghost hidden" id="againBtn" type="button"><span data-i18n="sendAgain"></span></button>
@@ -143,10 +159,20 @@
       <p class="sub" id="recvTotal"></p>
       <div class="warn hidden" id="recvWarn"></div>
       <p class="status" id="recvStatus"></p>
+      <span class="badge ok hidden" id="wifiBadgeR" data-i18n="wifiBadge" style="margin-bottom:6px"></span>
+      <div class="hidden" id="pinBox" style="margin:10px 0">
+        <p class="sub" data-i18n="pinPrompt" style="margin:0 0 6px"></p>
+        <div class="rowline">
+          <div class="grow"><input class="linkbox" id="pinInput" inputmode="numeric" autocomplete="off" maxlength="4"></div>
+          <button class="btn small" id="pinBtn" type="button"><span data-i18n="pinSend"></span></button>
+        </div>
+        <p class="sub hidden" id="pinErr" style="margin:6px 0 0;color:var(--bad);font-weight:600"></p>
+      </div>
       <button class="btn" id="acceptBtn" type="button" disabled><span data-i18n="acceptBtn"></span></button>
       <div id="recvProgress" style="margin-top:10px"></div>
       <div style="margin-top:12px">
         <button class="btn ghost hidden" id="sendBackBtn" type="button"><span data-i18n="sendBack"></span></button>
+        <button class="btn ghost hidden" id="doneWaBtn" type="button" style="margin-left:8px"><span data-i18n="doneWaBtn"></span></button>
         <button class="btn ghost hidden" id="reconnectBtn" type="button"><span data-i18n="reconnectBtn"></span></button>
       </div>
     </div>
@@ -157,6 +183,7 @@
     <h2 class="sec" data-i18n="diagTitle"></h2>
     <table>
       <tr><td class="k" data-i18n="dState"></td><td class="v" id="dgState">-</td></tr>
+      <tr><td class="k" data-i18n="dPreflight"></td><td class="v" id="dgPreflight">-</td></tr>
       <tr><td class="k" data-i18n="dPath"></td><td class="v" id="dgPath">-</td></tr>
       <tr><td class="k" data-i18n="dMoved"></td><td class="v" id="dgMoved">-</td></tr>
       <tr><td class="k" data-i18n="dSpeed"></td><td class="v" id="dgSpeed">-</td></tr>
@@ -170,6 +197,7 @@
 
   <footer class="foot">
     <span data-i18n="footNote"></span><br>
+    <span data-i18n="footTrust"></span><br>
     by ptraaa<br>
     <a href="https://github.com/Ptraaah/zeroserver/releases" target="_blank" rel="noopener" data-i18n="footDownload"></a>
     &middot;
@@ -261,7 +289,30 @@ var I18N = {
     etaDone: "selesai",
     saving: "Menyimpan...",
     receivingWait: "Menunggu pengirim menyiapkan file...",
-    senderReady: "Pengirim terhubung. Tekan Terima file untuk mulai."
+    senderReady: "Pengirim terhubung. Tekan Terima file untuk mulai.",
+    waText: "Halo, aku mau kirim file lewat ZeroServer, ini linknya: {link}\nAku tetap buka halaman pengirim selama pengiriman. Kamu juga jangan tutup halamannya sampai semua file tertulis terverifikasi ya.",
+    doneWaBtn: "Kirim kabar selesai",
+    doneWaText: "Sudah sampai semua, utuh dan terverifikasi: {files} ({size}). Dikirim pakai ZeroServer.",
+    wvText: "Kamu membuka halaman ini dari dalam aplikasi chat. Unduhan dan file besar sering bermasalah di browser bawaan aplikasi. Buka link ini di Chrome atau browser utama kamu supaya aman.",
+    wifiBadge: "Satu WiFi, ga makan kuota internet",
+    pinSetLabel: "PIN (opsional)",
+    pinSetHint: "Kalau diisi 4 angka, penerima harus memasukkan PIN ini dulu sebelum daftar file dikirim ke dia.",
+    oneShotLabel: "Sekali pakai",
+    oneShotHint: "Setelah satu pengiriman selesai penuh, link berhenti menerima koneksi baru.",
+    expireLabel: "Kedaluwarsa 30 menit",
+    expireHint: "Link berhenti menerima koneksi baru 30 menit setelah dibuat.",
+    linkExpiresIn: "Berhenti menerima dalam",
+    linkExpiredNote: "Link sudah kedaluwarsa, tidak menerima koneksi baru.",
+    linkUsedUp: "Link sudah terpakai, tidak menerima koneksi baru.",
+    pinPrompt: "Pengirim memasang PIN. Masukkan PIN 4 angka dari pengirim:",
+    pinSend: "Kirim PIN",
+    pinWrong: "PIN salah.",
+    pinTries: "kesempatan tersisa.",
+    dPreflight: "Cek jaringan awal",
+    preflightOpen: "kelihatannya terbuka untuk koneksi langsung",
+    preflightRestricted: "kelihatannya terbatas, koneksi langsung mungkin sulit",
+    preflightUnknown: "belum bisa dipastikan",
+    footTrust: "Tidak akan pernah ada akun, iklan, atau fitur dikunci. Salin satu file ini, dan alat ini milikmu selamanya."
   },
   en: {
     tagline: "Send files straight from one device to another. No account, no upload to any server, no size cap set by a service.",
@@ -333,7 +384,30 @@ var I18N = {
     etaDone: "done",
     saving: "Saving...",
     receivingWait: "Waiting for the sender to prepare the files...",
-    senderReady: "Sender connected. Tap Accept files to start."
+    senderReady: "Sender connected. Tap Accept files to start.",
+    waText: "Hi, I am sending you files with ZeroServer, here is the link: {link}\nI will keep my sender page open during the transfer. Please keep your page open too until every file says verified.",
+    doneWaBtn: "Send the done message",
+    doneWaText: "All files arrived complete and verified: {files} ({size}). Sent with ZeroServer.",
+    wvText: "You opened this page inside a chat app. Downloads and large files often break in in-app browsers. Open this link in Chrome or your full browser to be safe.",
+    wifiBadge: "Same Wi-Fi, uses no internet data",
+    pinSetLabel: "PIN (optional)",
+    pinSetHint: "If set to 4 digits, the receiver has to enter this PIN before the file list is sent to them.",
+    oneShotLabel: "One-shot link",
+    oneShotHint: "After one fully completed transfer, the link stops accepting new connections.",
+    expireLabel: "Expires in 30 minutes",
+    expireHint: "The link stops accepting new connections 30 minutes after it is created.",
+    linkExpiresIn: "Stops accepting in",
+    linkExpiredNote: "This link has expired and accepts no new connections.",
+    linkUsedUp: "Link already used, accepts no new connections.",
+    pinPrompt: "The sender set a PIN. Enter the 4-digit PIN from the sender:",
+    pinSend: "Send PIN",
+    pinWrong: "Wrong PIN.",
+    pinTries: "tries left.",
+    dPreflight: "Network pre-check",
+    preflightOpen: "looks open for direct connections",
+    preflightRestricted: "looks restricted, direct connections may be hard",
+    preflightUnknown: "could not tell",
+    footTrust: "Never accounts, never ads, never locked features. Copy this one file, and the tool is yours forever."
   }
 };
 var lang = "id";
@@ -504,6 +578,8 @@ var Diag = {
       : (this.speed > 0 && this.totalBytes ? fmtDur(remain / this.speed) : "-");
     var dur = this.startAt ? ((this.endAt || Date.now()) - this.startAt) / 1000 : 0;
     $("dgDur").textContent = this.startAt ? fmtDur(dur) : "-";
+    updateWifiBadge();
+    renderPreflight();
   },
   sample: function(){
     var now = Date.now();
@@ -568,6 +644,57 @@ function watchPath(pc){
   }, 2000);
 }
 
+/* Same-WiFi badge: shown when the chosen path is a host candidate,
+   i.e. both devices are on the same local network and no internet
+   data is used for the file bytes. */
+function updateWifiBadge(){
+  var show = Diag.pathType === "direct" && Diag.pathDetail === "host";
+  var a = $("wifiBadgeS"), b = $("wifiBadgeR");
+  if (a) a.classList.toggle("hidden", !show);
+  if (b) b.classList.toggle("hidden", !show);
+}
+
+/* ---------------- pre-flight network check ----------------
+   One throwaway RTCPeerConnection gathers ICE candidates with the
+   same STUN servers a real transfer would use. Seeing an srflx
+   candidate means the network hands out a public-facing address,
+   so direct connections look possible. Host-only means the browser
+   never got one, so direct connections look restricted. Relay
+   cannot be tested (v1.2 has no TURN). Honest hint, never a gate. */
+var Preflight = { state: null };   /* null | "open" | "restricted" | "unknown" */
+function renderPreflight(){
+  var el = $("dgPreflight"); if (!el) return;
+  el.textContent = !Preflight.state ? "-" :
+    t(Preflight.state === "open" ? "preflightOpen" :
+      Preflight.state === "restricted" ? "preflightRestricted" : "preflightUnknown");
+}
+function preflightProbe(){
+  var pc;
+  try { pc = new RTCPeerConnection(PEER_OPTS.config); }
+  catch (e) { Preflight.state = "unknown"; renderPreflight(); return; }
+  var sawSrflx = false, sawHost = false, finished = false;
+  function finish(){
+    if (finished) return;
+    finished = true;
+    try { pc.close(); } catch (e) {}
+    Preflight.state = sawSrflx ? "open" : (sawHost ? "restricted" : "unknown");
+    renderPreflight();
+  }
+  try {
+    pc.createDataChannel("zs-probe");
+    pc.onicecandidate = function(ev){
+      if (!ev.candidate){ finish(); return; }
+      var m = /\btyp (host|srflx|relay)\b/.exec(ev.candidate.candidate || "");
+      if (m && m[1] === "srflx") sawSrflx = true;
+      if (m && m[1] === "host") sawHost = true;
+    };
+    pc.createOffer().then(function(offer){
+      return pc.setLocalDescription(offer);
+    }).catch(function(){ finish(); });
+    setTimeout(finish, 4000);
+  } catch (e) { finish(); }
+}
+
 /* ---------------- shared peer config ---------------- */
 var PEER_OPTS = {
   debug: 0,
@@ -592,7 +719,9 @@ function underlyingDC(conn){
 
 /* ================================================================
    Engines. Wire protocol (JSON control messages, binary = chunks):
-     hello    receiver -> sender   channel is open, send meta
+     hello    receiver -> sender   channel is open, send meta (may carry a PIN attempt)
+     pinreq   sender   -> receiver a PIN is set on this link, ask for it
+     pinerror sender   -> receiver wrong PIN, carries triesLeft (0 = closed)
      meta     sender   -> receiver file list + chunk counts
      accept   receiver -> sender   user pressed accept
      ready    receiver -> sender   save target for file i is set
@@ -655,6 +784,18 @@ function stopTicker(){
   Diag.endAt = Date.now(); Diag.sample();
 }
 
+/* ---------------- in-app browser (WebView) guard ----------------
+   Chat apps open links in their own stripped-down browser, where
+   downloads and large files often break. Warn, give a copy-link
+   button, never block. */
+(function(){
+  var ua = navigator.userAgent || "";
+  if (/FBAN|FBAV|Instagram|WhatsApp|Telegram/i.test(ua)){
+    $("wvBanner").classList.remove("hidden");
+  }
+  $("wvCopy").addEventListener("click", function(){ copyText(location.href, t("copied")); });
+})();
+
 /* ---------------- language toggle + easter egg ---------------- */
 $("lang-id").addEventListener("click", function(){ setLang("id"); });
 $("lang-en").addEventListener("click", function(){ setLang("en"); });
@@ -685,8 +826,39 @@ function setLang(l){
 var S = {
   files: [], peer: null, conn: null, link: "",
   ackedFile: 0, sentFile: 0, ackedTotal: 0,
-  waiters: {}, rows: [], active: false, dead: false, finished: false
+  waiters: {}, rows: [], active: false, dead: false, finished: false,
+  createdAt: 0, servedOnce: false
 };
+/* ---- link controls: optional PIN, one-shot, 30-minute expiry ----
+   All off by default, read live from the share-card controls, so
+   they can be set right after the link is created. */
+function sPin(){
+  var el = $("pinSet"); if (!el) return "";
+  var v = (el.value || "").replace(/\D/g, "");
+  return v.length === 4 ? v : "";
+}
+function sOneShotOn(){ var el = $("oneShotSet"); return !!(el && el.checked); }
+function sExpireOn(){ var el = $("expireSet"); return !!(el && el.checked); }
+function sLinkClosed(){
+  if (sOneShotOn() && S.servedOnce) return true;
+  if (sExpireOn() && S.createdAt && Date.now() > S.createdAt + 30 * 60 * 1000) return true;
+  return false;
+}
+function fmtClock(ms){
+  var s = Math.max(0, Math.ceil(ms / 1000));
+  var m = Math.floor(s / 60), ss = s % 60;
+  return m + ":" + (ss < 10 ? "0" : "") + ss;
+}
+function updateLinkTimer(){
+  var el = $("linkTimer"); if (!el) return;
+  if (!S.createdAt || !sExpireOn()){ el.classList.add("hidden"); return; }
+  var left = S.createdAt + 30 * 60 * 1000 - Date.now();
+  el.classList.remove("hidden");
+  el.textContent = left > 0 ? t("linkExpiresIn") + " " + fmtClock(left) : t("linkExpiredNote");
+}
+$("pinSet").addEventListener("input", function(){
+  this.value = this.value.replace(/\D/g, "").slice(0, 4);
+});
 function sMeta(){
   var out = [];
   for (var i = 0; i < S.files.length; i++){
@@ -814,8 +986,13 @@ $("createBtn").addEventListener("click", function(){
     buildSendProgress();
     $("sendStatus").textContent = t("waitingPeer");
     Diag.stateKey = "stateWaiting"; Diag.render();
+    S.createdAt = Date.now();
+    if (S._timerIv) clearInterval(S._timerIv);
+    S._timerIv = setInterval(updateLinkTimer, 1000);
+    updateLinkTimer();
   });
   peer.on("connection", function(conn){
+    if (sLinkClosed()){ try { conn.close(); } catch (e) {} return; }
     if (S.conn && S.conn.open){ try { conn.close(); } catch (e) {} return; }
     if (S.conn) sDisconnect(); /* stale half-dead connection: reset, take the new one */
     S.conn = conn; wireSenderConn(conn);
@@ -828,7 +1005,7 @@ $("createBtn").addEventListener("click", function(){
 });
 $("copyBtn").addEventListener("click", function(){ copyText(S.link, t("copied")); });
 $("waBtn").addEventListener("click", function(){
-  if (S.link) window.open("https://wa.me/?text=" + encodeURIComponent(S.link), "_blank");
+  if (S.link) window.open("https://wa.me/?text=" + encodeURIComponent(t("waText").replace("{link}", S.link)), "_blank");
 });
 $("againBtn").addEventListener("click", function(){
   location.hash = ""; location.reload();
@@ -842,6 +1019,23 @@ function wireSenderConn(conn){
   conn.on("data", function(data){
     if (!isControlMsg(data)) return;
     if (data.kind === "hello"){
+      if (sLinkClosed()){ try { conn.close(); } catch (e) {} return; }
+      var want = sPin();
+      if (want){
+        var attempt = data.pin || "";
+        if (attempt !== want){
+          if (attempt) conn._pinTries = (conn._pinTries || 0) + 1;
+          var left = 3 - (conn._pinTries || 0);
+          if (left <= 0){
+            try { conn.send({ kind: "pinerror", triesLeft: 0 }); } catch (e) {}
+            try { conn.close(); } catch (e) {}
+            return;
+          }
+          /* no attempt yet: ask. wrong attempt: say so. meta waits. */
+          conn.send(attempt ? { kind: "pinerror", triesLeft: left } : { kind: "pinreq" });
+          return;
+        }
+      }
       conn.send({ kind: "meta", files: sMeta() });
     } else if (data.kind === "have"){
       conn._have = data.indexes || [];
@@ -900,6 +1094,10 @@ function runSend(conn){
     Diag.success = true; Diag.stateKey = "stateDone"; Diag.render();
     S.dead = true; S.finished = true;
     $("sendStatus").textContent = t("doneOk");
+    if (sOneShotOn()){
+      S.servedOnce = true;
+      $("sendStatus").textContent = t("doneOk") + " " + t("linkUsedUp");
+    }
     $("againBtn").classList.remove("hidden");
   }).catch(function(err){
     if (S.conn !== conn) return; /* disconnected; sDisconnect already reset the UI */
@@ -950,9 +1148,52 @@ var R = {
   peer: null, conn: null, files: [], handles: [], modes: [],
   cur: -1, hasher: null, writable: null, memParts: [], recvBytes: 0,
   chain: Promise.resolve(), dead: false, accepted: false,
-  have: {}, peerId: null, gotMeta: false, everAccepted: false, gen: 0
+  have: {}, peerId: null, gotMeta: false, everAccepted: false, gen: 0,
+  pin: "", opfsRoot: null, opfsNames: [], opfsHandles: []
 };
 var HAS_FS = typeof window.showSaveFilePicker === "function";
+var HAS_OPFS = !!(navigator.storage && navigator.storage.getDirectory);
+
+/* ---------------- OPFS receive sink ----------------
+   When neither FS Access nor a user-picked file is available, chunks
+   stream into the browser's origin-private storage instead of RAM,
+   so Firefox/Safari can receive files far bigger than memory. The
+   temp files all carry a "zs-" prefix and are cleaned up after the
+   download is offered; leftovers are swept on the next visit. */
+function opfsOpen(i){
+  return navigator.storage.getDirectory().then(function(root){
+    R.opfsRoot = root;
+    if (!R.opfsNames[i]) R.opfsNames[i] = "zs-" + Date.now() + "-" + i;
+    return root.getFileHandle(R.opfsNames[i], { create: true });
+  }).then(function(fh){
+    R.opfsHandles[i] = fh;
+    return fh.createWritable();
+  }).then(function(w){ R.writable = w; });
+}
+function opfsDiscard(i){
+  if (!R.opfsRoot || !R.opfsNames[i]) return;
+  var name = R.opfsNames[i]; R.opfsNames[i] = null;
+  R.opfsRoot.removeEntry(name).catch(function(){});
+}
+function opfsSweep(){
+  if (!HAS_OPFS) return;
+  try {
+    navigator.storage.getDirectory().then(function(root){
+      R.opfsRoot = root;
+      if (!root.values) return;
+      var it = root.values();
+      (function step(){
+        it.next().then(function(r){
+          if (r.done) return;
+          var h = r.value;
+          if (h && h.kind === "file" && h.name.indexOf("zs-") === 0){
+            root.removeEntry(h.name).then(step, step);
+          } else step();
+        }).catch(function(){});
+      })();
+    }).catch(function(){});
+  } catch (e) {}
+}
 function renderRecvList(){
   var ul = $("recvList"); ul.innerHTML = "";
   for (var i = 0; i < R.files.length; i++){
@@ -995,6 +1236,7 @@ function initReceiver(peerId){
   $("recvFrom").textContent = t("fromPeer");
   Diag.reset(t("summaryRoleRecv"));
   R.peerId = peerId;
+  opfsSweep();
   rConnect();
 }
 function rConnect(){
@@ -1026,6 +1268,8 @@ function enterLostState(){
     R.writable = null;
   }
   R.memParts = [];
+  if (R.cur >= 0 && R.modes[R.cur] === "opfs") opfsDiscard(R.cur);
+  $("pinBox").classList.add("hidden");
   Diag.stateKey = "stateFailed"; Diag.render();
   $("recvStatus").textContent = t("connLost");
   $("reconnectBtn").classList.remove("hidden");
@@ -1051,12 +1295,14 @@ function wireRecvConn(conn){
   conn.on("open", function(){
     $("recvStatus").textContent = t("receivingWait");
     watchPath(rtcOf(conn));
-    conn.send({ kind: "hello" });
+    conn.send({ kind: "hello", pin: R.pin || "" });
   });
   conn.on("data", function(data){
     if (R.conn !== conn) return;
     if (isControlMsg(data)){
-      if (data.kind === "meta") onMeta(data);
+      if (data.kind === "pinreq") onPinReq();
+      else if (data.kind === "pinerror") onPinErr(data);
+      else if (data.kind === "meta") onMeta(data);
       else if (data.kind === "fileend") enqueue(function(){ return finishFile(data); });
       else if (data.kind === "done") onAllDone();
       return;
@@ -1081,16 +1327,45 @@ function enqueue(fn){
     return fn();
   }).catch(function(e){ rDie(e && e.message ? e.message : "error", "errGeneric"); });
 }
+function onPinReq(){
+  /* A PIN we already entered (e.g. before a reconnect) is resent
+     automatically; otherwise ask the user. */
+  if (R.pin){ if (R.conn) R.conn.send({ kind: "hello", pin: R.pin }); return; }
+  $("pinBox").classList.remove("hidden");
+  $("recvStatus").textContent = t("pinPrompt");
+}
+function onPinErr(data){
+  R.pin = "";
+  $("pinBox").classList.remove("hidden");
+  var e = $("pinErr");
+  e.textContent = t("pinWrong") + " " + (data.triesLeft != null ? data.triesLeft : "") + " " + t("pinTries");
+  e.classList.remove("hidden");
+  $("recvStatus").textContent = t("pinPrompt");
+}
+$("pinBtn").addEventListener("click", function(){
+  var v = ($("pinInput").value || "").replace(/\D/g, "");
+  if (v.length !== 4) return;
+  R.pin = v;
+  $("pinErr").classList.add("hidden");
+  $("pinBox").classList.add("hidden");
+  $("recvStatus").textContent = t("receivingWait");
+  if (R.conn) R.conn.send({ kind: "hello", pin: v });
+});
+$("pinInput").addEventListener("input", function(){
+  this.value = this.value.replace(/\D/g, "").slice(0, 4);
+});
 function onMeta(data){
   R.files = data.files || [];
   R.gotMeta = true;
+  $("pinBox").classList.add("hidden");
+  $("pinErr").classList.add("hidden");
   var total = 0, big = false, i;
   for (i = 0; i < R.files.length; i++){ total += R.files[i].size; if (R.files[i].size > BIG_FILE) big = true; }
   Diag.totalBytes = total; Diag.render();
   renderRecvList();
   /* files verified in an earlier connection keep their badges */
   for (var k in R.have){ rBadge(+k, "ok"); rBar(+k, R.files[+k] ? R.files[+k].size : 0); }
-  if (big && !HAS_FS){
+  if (big && !HAS_FS && !HAS_OPFS){
     var w = $("recvWarn"); w.textContent = t("warnBig"); w.classList.remove("hidden");
   }
   if (R.everAccepted){
@@ -1125,7 +1400,8 @@ function prepareAll(){
      so later files never need a fresh user gesture. */
   var chain = Promise.resolve();
   if (!HAS_FS){
-    R.files.forEach(function(f, i){ R.modes[i] = "mem"; });
+    var sink = HAS_OPFS ? "opfs" : "mem";
+    R.files.forEach(function(f, i){ R.modes[i] = sink; });
     return chain;
   }
   R.files.forEach(function(f, i){
@@ -1145,9 +1421,16 @@ function beginFile(i){
   R.cur = i; R.recvBytes = 0; R.memParts = [];
   R.hasher = new SHA256.Hasher();
   rBadge(i, "active");
-  var openWrite = (R.modes[i] === "fs" && R.handles[i])
-    ? R.handles[i].createWritable().then(function(w){ R.writable = w; })
-    : Promise.resolve();
+  var openWrite;
+  if (R.modes[i] === "fs" && R.handles[i]){
+    openWrite = R.handles[i].createWritable().then(function(w){ R.writable = w; });
+  } else if (R.modes[i] === "opfs"){
+    openWrite = opfsOpen(i).catch(function(){
+      R.modes[i] = "mem"; R.writable = null; /* OPFS failed: RAM is the last resort */
+    });
+  } else {
+    openWrite = Promise.resolve();
+  }
   return openWrite.then(function(){ R.conn.send({ kind: "ready", index: i }); });
 }
 function takeChunk(data){
@@ -1189,19 +1472,18 @@ function finishFile(msg){
       R.have[i] = true;
       rBadge(i, "ok"); rBar(i, f.size);
       if (R.modes[i] === "mem") offerDownload(i);
+      else if (R.modes[i] === "opfs") offerDownloadOpfs(i);
       if (i + 1 < R.files.length) return beginFile(i + 1);
     } else {
       rBadge(i, "bad");
+      if (R.modes[i] === "opfs") opfsDiscard(i); /* never keep a corrupt file */
       var box = $("recvErr"); box.textContent = t("mismatch"); box.classList.remove("hidden");
       rDie("hash mismatch", "errGeneric"); $("recvErr").textContent = t("mismatch");
     }
   });
 }
-function offerDownload(i){
+function showDownload(i, url){
   var f = R.files[i];
-  var blob = new Blob(R.memParts, { type: f.type || "application/octet-stream" });
-  R.memParts = [];
-  var url = URL.createObjectURL(blob);
   var host = $("rdl" + i); if (!host) return;
   var a = document.createElement("a");
   a.href = url; a.download = f.name; a.className = "btn ghost small dlbtn";
@@ -1214,15 +1496,42 @@ function offerDownload(i){
   document.body.appendChild(ghost); ghost.click();
   document.body.removeChild(ghost);
 }
+function offerDownload(i){
+  var f = R.files[i];
+  var blob = new Blob(R.memParts, { type: f.type || "application/octet-stream" });
+  R.memParts = [];
+  showDownload(i, URL.createObjectURL(blob));
+}
+function offerDownloadOpfs(i){
+  var fh = R.opfsHandles[i]; if (!fh) return;
+  fh.getFile().then(function(file){
+    var url = URL.createObjectURL(file);
+    showDownload(i, url);
+    /* The download reads from the OPFS file via this URL, so give it
+       plenty of time before revoking and removing the temp copy. */
+    setTimeout(function(){ URL.revokeObjectURL(url); opfsDiscard(i); }, 10 * 60 * 1000);
+  }).catch(function(){});
+}
 function onAllDone(){
   stopTicker();
   Diag.success = true; Diag.stateKey = "stateDone"; Diag.render();
   R.dead = true;
   $("recvStatus").textContent = t("doneRecv");
   $("sendBackBtn").classList.remove("hidden");
+  var allOk = R.files.length > 0;
+  for (var i = 0; i < R.files.length; i++){ if (!R.have[i]) allOk = false; }
+  if (allOk) $("doneWaBtn").classList.remove("hidden");
 }
 $("sendBackBtn").addEventListener("click", function(){
   location.href = location.href.split("#")[0];
+});
+$("doneWaBtn").addEventListener("click", function(){
+  var names = [], total = 0, i;
+  for (i = 0; i < R.files.length; i++){ names.push(R.files[i].name); total += R.files[i].size; }
+  var list = names.join(", ");
+  if (list.length > 180) list = list.slice(0, 177) + "...";
+  var msg = t("doneWaText").replace("{files}", list).replace("{size}", fmtBytes(total));
+  window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
 });
 
 /* ---------------- boot ---------------- */
@@ -1230,7 +1539,7 @@ applyI18n();
 Diag.render();
 var routeMatch = location.hash.match(/^#\/r\/(.+)$/);
 if (routeMatch) initReceiver(decodeURIComponent(routeMatch[1]));
-else renderSendList();
+else { renderSendList(); preflightProbe(); }
 </script>
 </body>
 </html>
