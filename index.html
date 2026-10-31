@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZeroServer — kirim file langsung, tanpa server</title>
+<meta name="description" content="ZeroServer: kirim file dari browser ke browser, langsung. Tanpa akun, tanpa upload ke server, tanpa batas ukuran dari layanan.">
+<style>
+  :root{
+    --orange:#ea580c; --orange-soft:#fff3e8; --ink:#1c1917; --muted:#78716c;
+    --line:#e7e0d8; --card:#ffffff; --bg:#faf7f3; --ok:#15803d; --bad:#b91c1c;
+    --radius:16px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45}
+  .wrap{max-width:640px;margin:0 auto;padding:16px 14px 40px}
+  header.top{display:flex;align-items:center;justify-content:space-between;padding:8px 2px 14px}
+  .logo{font-size:30px;font-weight:800;letter-spacing:-.5px;cursor:pointer;user-select:none}
+  .logo .dot{color:var(--orange)}
+  .langtog{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:#fff}
+  .langtog button{border:0;background:#fff;padding:6px 12px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
+  .langtog button.on{background:var(--orange);color:#fff}
+  .tagline{font-size:15px;color:var(--muted);margin:0 2px 14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 16px;margin-bottom:14px}
+  .honest{background:var(--orange-soft);border:1px solid #f3d9c4;border-radius:var(--radius);padding:12px 14px;font-size:14px;margin-bottom:14px}
+  .honest p{margin:4px 0}
+  .drop{border:2px dashed #d8cfc4;border-radius:var(--radius);padding:26px 14px;text-align:center;color:var(--muted);background:#fffdfb}
+  .drop.over{border-color:var(--orange);background:var(--orange-soft);color:var(--ink)}
+  .drop .big{font-size:17px;font-weight:700;color:var(--ink);margin-bottom:4px}
+  button.btn{appearance:none;border:0;border-radius:12px;background:var(--orange);color:#fff;font-size:16px;font-weight:700;padding:13px 18px;width:100%;cursor:pointer}
+  button.btn:disabled{background:#d6cec5;cursor:not-allowed}
+  button.btn.ghost{background:#fff;color:var(--orange);border:1.5px solid var(--orange)}
+  button.btn.small{width:auto;font-size:14px;padding:9px 14px}
+  .rowline{display:flex;gap:8px;align-items:center}
+  .rowline .grow{flex:1}
+  input.linkbox{width:100%;font-size:14px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fbf9f6;color:var(--ink)}
+  ul.files{list-style:none;margin:10px 0;padding:0}
+  ul.files li{padding:9px 2px;border-bottom:1px solid var(--line)}
+  ul.files li:last-child{border-bottom:0}
+  .fname{font-weight:600;font-size:15px;word-break:break-all}
+  .fmeta{font-size:13px;color:var(--muted)}
+  .bar{height:10px;background:#f0e9e1;border-radius:99px;overflow:hidden;margin-top:7px}
+  .bar > div{height:100%;width:0%;background:var(--orange);transition:width .25s}
+  .badge{display:inline-block;font-size:12px;font-weight:700;padding:2px 9px;border-radius:99px;margin-left:8px;vertical-align:middle}
+  .badge.ok{background:#e7f6ec;color:var(--ok)}
+  .badge.bad{background:#fdeaea;color:var(--bad)}
+  .badge.wait{background:#f0e9e1;color:var(--muted)}
+  .status{font-size:15px;font-weight:600;margin:8px 0}
+  .sub{font-size:13.5px;color:var(--muted)}
+  .qrbox{display:flex;justify-content:center;padding:12px 0 4px}
+  .qrbox svg{max-width:220px;height:auto}
+  .warn{background:#fdf3e3;border:1px solid #eed9ae;border-radius:12px;padding:10px 12px;font-size:14px;margin:10px 0}
+  .err{background:#fdeaea;border:1px solid #f0bcbc;border-radius:12px;padding:10px 12px;font-size:14px;margin:10px 0;color:#7f1d1d}
+  .diag{font-size:13.5px}
+  .diag table{width:100%;border-collapse:collapse}
+  .diag td{padding:4px 0;border-bottom:1px solid var(--line);vertical-align:top}
+  .diag td.k{color:var(--muted);width:42%}
+  .diag td.v{font-weight:600;text-align:right;word-break:break-all}
+  .diag tr:last-child td{border-bottom:0}
+  .hidden{display:none !important}
+  footer.foot{text-align:center;color:var(--muted);font-size:13px;margin-top:22px}
+  #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:#1c1917;color:#fff;padding:10px 18px;border-radius:99px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  h2.sec{font-size:17px;margin:2px 0 8px}
+  .dlbtn{margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="logo" id="logo">Zero<span class="dot">Server</span></div>
+    <div class="langtog">
+      <button id="lang-id" class="on" type="button">ID</button>
+      <button id="lang-en" type="button">EN</button>
+    </div>
+  </header>
+  <p class="tagline" data-i18n="tagline"></p>
+
+  <div class="honest">
+    <p data-i18n="honest1"></p>
+    <p data-i18n="honest2"></p>
+    <p data-i18n="honest3"></p>
+  </div>
+
+  <!-- ============ SENDER VIEW ============ -->
+  <section id="view-send">
+    <div class="card">
+      <div class="drop" id="dropzone">
+        <div class="big" data-i18n="dropTitle"></div>
+        <div data-i18n="dropHint"></div>
+        <div style="margin-top:14px">
+          <button class="btn small" id="pickBtn" type="button"><span data-i18n="pickBtn"></span></button>
+        </div>
+      </div>
+      <input type="file" id="fileInput" multiple class="hidden">
+      <ul class="files" id="sendList"></ul>
+      <p class="sub" id="sendTotal"></p>
+      <button class="btn" id="createBtn" type="button" disabled><span data-i18n="createLink"></span></button>
+    </div>
+
+    <div class="card hidden" id="shareCard">
+      <h2 class="sec" data-i18n="linkReady"></h2>
+      <div class="rowline">
+        <div class="grow"><input class="linkbox" id="shareLink" readonly></div>
+        <button class="btn small" id="copyBtn" type="button"><span data-i18n="copyLink"></span></button>
+      </div>
+      <div class="rowline" style="margin-top:8px">
+        <button class="btn ghost small" id="waBtn" type="button"><span data-i18n="shareWa"></span></button>
+      </div>
+      <div class="qrbox" id="qrBox"></div>
+      <p class="status" id="sendStatus"></p>
+      <p class="sub" data-i18n="keepOpen"></p>
+      <div id="sendProgress"></div>
+      <div style="margin-top:12px">
+        <button class="btn ghost hidden" id="againBtn" type="button"><span data-i18n="sendAgain"></span></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RECEIVER VIEW ============ -->
+  <section id="view-recv" class="hidden">
+    <div class="card">
+      <h2 class="sec" data-i18n="incomingTitle"></h2>
+      <p class="sub" id="recvFrom"></p>
+      <div class="err hidden" id="recvErr"></div>
+      <ul class="files" id="recvList"></ul>
+      <p class="sub" id="recvTotal"></p>
+      <div class="warn hidden" id="recvWarn"></div>
+      <p class="status" id="recvStatus"></p>
+      <button class="btn" id="acceptBtn" type="button" disabled><span data-i18n="acceptBtn"></span></button>
+      <div id="recvProgress" style="margin-top:10px"></div>
+      <div style="margin-top:12px">
+        <button class="btn ghost hidden" id="sendBackBtn" type="button"><span data-i18n="sendBack"></span></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DIAGNOSTICS ============ -->
+  <div class="card diag">
+    <h2 class="sec" data-i18n="diagTitle"></h2>
+    <table>
+      <tr><td class="k" data-i18n="dState"></td><td class="v" id="dgState">-</td></tr>
+      <tr><td class="k" data-i18n="dPath"></td><td class="v" id="dgPath">-</td></tr>
+      <tr><td class="k" data-i18n="dMoved"></td><td class="v" id="dgMoved">-</td></tr>
+      <tr><td class="k" data-i18n="dSpeed"></td><td class="v" id="dgSpeed">-</td></tr>
+      <tr><td class="k" data-i18n="dEta"></td><td class="v" id="dgEta">-</td></tr>
+      <tr><td class="k" data-i18n="dDur"></td><td class="v" id="dgDur">-</td></tr>
+    </table>
+    <div style="margin-top:12px">
+      <button class="btn ghost small" id="copyTestBtn" type="button"><span data-i18n="copyTest"></span></button>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <span data-i18n="footNote"></span><br>
+    by ptraaa
+  </footer>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<script>
+"use strict";
+/* ================================================================
+   ZeroServer — serverless peer-to-peer file transfer.
+   Files travel directly between two browsers over an encrypted
+   WebRTC data channel (PeerJS for signalling). No file server.
+   ================================================================ */
+
+/* ---------------- i18n ---------------- */
+var I18N = {
+  id: {
+    tagline: "Kirim file langsung dari perangkat ke perangkat. Tanpa akun, tanpa upload ke server, tanpa batas ukuran dari layanan.",
+    honest1: "Tetap buka tab ini. Kalau tab pengirim ditutup, pengiriman berhenti.",
+    honest2: "File berjalan langsung dari satu perangkat ke perangkat lain. Tidak ada yang diupload ke mana pun.",
+    honest3: "Pengirim dan penerima harus sama-sama online selama pengiriman berlangsung.",
+    dropTitle: "Tarik file ke sini",
+    dropHint: "atau pilih dari perangkat kamu",
+    pickBtn: "Pilih file",
+    createLink: "Buat link kirim",
+    linkReady: "Link kirim kamu",
+    copyLink: "Salin link",
+    copied: "Tersalin",
+    shareWa: "Bagikan lewat WhatsApp",
+    keepOpen: "Jangan tutup tab ini sampai penerima selesai mengunduh.",
+    sendAgain: "Kirim lagi",
+    incomingTitle: "Ada file masuk untuk kamu",
+    acceptBtn: "Terima file",
+    sendBack: "Kirim file balik",
+    diagTitle: "Hasil tes koneksi",
+    dState: "Status",
+    dPath: "Jalur koneksi",
+    dMoved: "Sudah terkirim",
+    dSpeed: "Kecepatan",
+    dEta: "Perkiraan selesai",
+    dDur: "Durasi",
+    copyTest: "Salin hasil tes",
+    testCopied: "Hasil tes tersalin",
+    footNote: "Satu file halaman ini. Kode terbuka, siapa pun bisa memasang salinannya sendiri.",
+    totalFiles: "file",
+    waitingPeer: "Menunggu penerima membuka link...",
+    connecting: "Menghubungkan...",
+    connected: "Terhubung. Menyiapkan pengiriman...",
+    sending: "Mengirim...",
+    receiving: "Menerima...",
+    doneOk: "Selesai. Semua file terkirim dan terverifikasi sama persis.",
+    doneRecv: "Selesai. Semua file diterima.",
+    verified: "terverifikasi sama",
+    failedBadge: "gagal",
+    pendingBadge: "menunggu",
+    activeBadge: "berjalan",
+    warnBig: "Browser ini tidak mendukung simpan langsung ke disk, jadi file besar akan ditampung di memori dulu. File di atas sekitar 300 MB bisa membuat browser gagal. Lanjutkan hanya kalau kamu yakin, atau buka link ini di Chrome Android.",
+    pickSave: "Pilih tempat menyimpan file ini:",
+    errGone: "Pengirim sudah tidak online. Link ini mati kalau tab pengirim ditutup. Minta link baru ke pengirim.",
+    errGeneric: "Koneksi gagal. Coba lagi, atau coba jaringan lain.",
+    errNoPeer: "Tidak bisa terhubung ke pengirim. Pastikan link benar dan tab pengirim masih terbuka.",
+    pathDirect: "langsung",
+    pathRelay: "lewat relay",
+    pathUnknown: "belum diketahui",
+    stateIdle: "siap",
+    stateWaiting: "menunggu penerima",
+    stateConnecting: "menghubungkan",
+    stateTransfer: "mengirim",
+    stateDone: "selesai",
+    stateFailed: "gagal",
+    fromPeer: "Pengirim siap mengirim file berikut ke perangkat kamu.",
+    mismatch: "Isi file tidak sama dengan aslinya. Minta pengirim mengirim ulang.",
+    summaryRoleSend: "Pengirim",
+    summaryRoleRecv: "Penerima",
+    etaDone: "selesai",
+    saving: "Menyimpan...",
+    receivingWait: "Menunggu pengirim menyiapkan file...",
+    senderReady: "Pengirim terhubung. Tekan Terima file untuk mulai."
+  },
+  en: {
+    tagline: "Send files straight from one device to another. No account, no upload to any server, no size cap set by a service.",
+    honest1: "Keep this tab open. If the sender closes the tab, the transfer stops.",
+    honest2: "Files travel directly from one device to the other. Nothing is uploaded anywhere.",
+    honest3: "Sender and receiver both need to stay online while the transfer runs.",
+    dropTitle: "Drop files here",
+    dropHint: "or pick them from your device",
+    pickBtn: "Pick files",
+    createLink: "Create send link",
+    linkReady: "Your send link",
+    copyLink: "Copy link",
+    copied: "Copied",
+    shareWa: "Share via WhatsApp",
+    keepOpen: "Do not close this tab until the receiver has finished downloading.",
+    sendAgain: "Send again",
+    incomingTitle: "Someone is sending you files",
+    acceptBtn: "Accept files",
+    sendBack: "Send files back",
+    diagTitle: "Connection test result",
+    dState: "State",
+    dPath: "Connection path",
+    dMoved: "Transferred",
+    dSpeed: "Speed",
+    dEta: "Time left",
+    dDur: "Duration",
+    copyTest: "Copy test result",
+    testCopied: "Test result copied",
+    footNote: "One single page file. Open source, anyone can host their own copy.",
+    totalFiles: "files",
+    waitingPeer: "Waiting for the receiver to open the link...",
+    connecting: "Connecting...",
+    connected: "Connected. Preparing the transfer...",
+    sending: "Sending...",
+    receiving: "Receiving...",
+    doneOk: "Done. Every file was sent and verified identical.",
+    doneRecv: "Done. Every file received.",
+    verified: "verified identical",
+    failedBadge: "failed",
+    pendingBadge: "waiting",
+    activeBadge: "in progress",
+    warnBig: "This browser cannot stream straight to disk, so large files are held in memory first. A file over about 300 MB may crash the browser. Continue only if you are sure, or open this link in Chrome on Android.",
+    pickSave: "Choose where to save this file:",
+    errGone: "The sender is no longer online. This link dies when the sender tab closes. Ask the sender for a new link.",
+    errGeneric: "Connection failed. Try again, or try another network.",
+    errNoPeer: "Could not reach the sender. Check the link and make sure the sender tab is still open.",
+    pathDirect: "direct",
+    pathRelay: "relayed",
+    pathUnknown: "not known yet",
+    stateIdle: "ready",
+    stateWaiting: "waiting for receiver",
+    stateConnecting: "connecting",
+    stateTransfer: "transferring",
+    stateDone: "done",
+    stateFailed: "failed",
+    fromPeer: "A sender is ready to send you these files.",
+    mismatch: "The file content does not match the original. Ask the sender to send it again.",
+    summaryRoleSend: "Sender",
+    summaryRoleRecv: "Receiver",
+    etaDone: "done",
+    saving: "Saving...",
+    receivingWait: "Waiting for the sender to prepare the files...",
+    senderReady: "Sender connected. Tap Accept files to start."
+  }
+};
+var lang = "id";
+function t(k){ return (I18N[lang] && I18N[lang][k]) || I18N.id[k] || k; }
+function applyI18n(){
+  var nodes = document.querySelectorAll("[data-i18n]");
+  for (var i = 0; i < nodes.length; i++){
+    nodes[i].textContent = t(nodes[i].getAttribute("data-i18n"));
+  }
+  document.getElementById("lang-id").classList.toggle("on", lang === "id");
+  document.getElementById("lang-en").classList.toggle("on", lang === "en");
+  document.documentElement.lang = lang;
+}
+
+/* ---------------- small utilities ---------------- */
+function $(id){ return document.getElementById(id); }
+function fmtBytes(n){
+  if (n === 0) return "0 B";
+  var u = ["B","KB","MB","GB","TB"], i = 0, v = n;
+  while (v >= 1024 && i < u.length - 1){ v /= 1024; i++; }
+  return (v >= 100 ? Math.round(v) : Math.round(v * 10) / 10) + " " + u[i];
+}
+function fmtDur(sec){
+  if (!isFinite(sec) || sec < 0) return "-";
+  sec = Math.round(sec);
+  var m = Math.floor(sec / 60), s = sec % 60;
+  if (m >= 60){ var h = Math.floor(m / 60); return h + "j " + (m % 60) + "m"; }
+  if (m > 0) return m + "m " + s + "s";
+  return s + "s";
+}
+function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+function toast(msg){
+  var el = $("toast"); el.textContent = msg; el.classList.add("show");
+  clearTimeout(toast._h); toast._h = setTimeout(function(){ el.classList.remove("show"); }, 2200);
+}
+function copyText(txt, doneMsg){
+  function done(){ if (doneMsg) toast(doneMsg); }
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(done, function(){ fallback(); });
+  } else fallback();
+  function fallback(){
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); } catch (e) {}
+    document.body.removeChild(ta); done();
+  }
+}
+
+/* ==== SHA256 BEGIN ==== */
+/* Compact incremental SHA-256 in pure JS (public-domain style).
+   Needed because SubtleCrypto has no streaming API. */
+var SHA256 = (function(){
+  var K = [
+    0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+    0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+    0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+    0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+  ];
+  function rr(x, n){ return (x >>> n) | (x << (32 - n)); }
+  function Hasher(){
+    this.h = new Int32Array([0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,
+                             0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19]);
+    this.buf = new Uint8Array(64);
+    this.blen = 0;
+    this.total = 0;
+    this.w = new Int32Array(64);
+    this.done = false;
+  }
+  Hasher.prototype._process = function(bytes, off){
+    var w = this.w, i;
+    for (i = 0; i < 16; i++){
+      w[i] = (bytes[off + i * 4] << 24) | (bytes[off + i * 4 + 1] << 16) |
+             (bytes[off + i * 4 + 2] << 8) | bytes[off + i * 4 + 3];
+    }
+    for (i = 16; i < 64; i++){
+      var x = w[i - 15], y = w[i - 2];
+      var s0 = rr(x, 7) ^ rr(x, 18) ^ (x >>> 3);
+      var s1 = rr(y, 17) ^ rr(y, 19) ^ (y >>> 10);
+      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+    }
+    var a = this.h[0], b = this.h[1], c = this.h[2], d = this.h[3];
+    var e = this.h[4], f = this.h[5], g = this.h[6], h = this.h[7];
+    for (i = 0; i < 64; i++){
+      var S1 = rr(e, 6) ^ rr(e, 11) ^ rr(e, 25);
+      var ch = (e & f) ^ (~e & g);
+      var t1 = (h + S1 + ch + K[i] + w[i]) | 0;
+      var S0 = rr(a, 2) ^ rr(a, 13) ^ rr(a, 22);
+      var mj = (a & b) ^ (a & c) ^ (b & c);
+      var t2 = (S0 + mj) | 0;
+      h = g; g = f; f = e; e = (d + t1) | 0;
+      d = c; c = b; b = a; a = (t1 + t2) | 0;
+    }
+    this.h[0] = (this.h[0] + a) | 0; this.h[1] = (this.h[1] + b) | 0;
+    this.h[2] = (this.h[2] + c) | 0; this.h[3] = (this.h[3] + d) | 0;
+    this.h[4] = (this.h[4] + e) | 0; this.h[5] = (this.h[5] + f) | 0;
+    this.h[6] = (this.h[6] + g) | 0; this.h[7] = (this.h[7] + h) | 0;
+  };
+  Hasher.prototype._feed = function(data){
+    var i = 0;
+    if (this.blen > 0){
+      var take = Math.min(64 - this.blen, data.length);
+      this.buf.set(data.subarray(0, take), this.blen);
+      this.blen += take; i += take;
+      if (this.blen === 64){ this._process(this.buf, 0); this.blen = 0; }
+    }
+    while (i + 64 <= data.length){ this._process(data, i); i += 64; }
+    if (i < data.length){ this.buf.set(data.subarray(i), 0); this.blen = data.length - i; }
+  };
+  Hasher.prototype.update = function(data){
+    if (this.done) throw new Error("hasher already finished");
+    this.total += data.length;
+    this._feed(data);
+    return this;
+  };
+  Hasher.prototype.digestHex = function(){
+    if (this.done) throw new Error("hasher already finished");
+    this.done = true;
+    var total = this.total;
+    var rem = total % 64;
+    var padLen = (rem < 56) ? (56 - rem) : (120 - rem);
+    var pad = new Uint8Array(padLen + 8);
+    pad[0] = 0x80;
+    var hi = Math.floor(total / 536870912);       /* (total * 8) / 2^32 */
+    var lo = (total % 536870912) * 8;             /* (total * 8) mod 2^32 */
+    var n = padLen;
+    pad[n]     = (hi >>> 24) & 255; pad[n + 1] = (hi >>> 16) & 255;
+    pad[n + 2] = (hi >>> 8) & 255;  pad[n + 3] = hi & 255;
+    pad[n + 4] = (lo >>> 24) & 255; pad[n + 5] = (lo >>> 16) & 255;
+    pad[n + 6] = (lo >>> 8) & 255;  pad[n + 7] = lo & 255;
+    this._feed(pad);
+    var out = "";
+    for (var i = 0; i < 8; i++){
+      var word = this.h[i] >>> 0;
+      var hex = word.toString(16);
+      while (hex.length < 8) hex = "0" + hex;
+      out += hex;
+    }
+    return out;
+  };
+  return { Hasher: Hasher };
+})();
+/* ==== SHA256 END ==== */
+
+/* ---------------- diagnostics ---------------- */
+var Diag = {
+  role: "-", stateKey: "stateIdle", pathType: null, pathDetail: "",
+  totalBytes: 0, movedBytes: 0, startAt: 0, endAt: 0,
+  lastSampleAt: 0, lastSampleBytes: 0, speed: 0, success: null, failNote: "",
+  reset: function(role){
+    this.role = role; this.stateKey = "stateIdle"; this.pathType = null; this.pathDetail = "";
+    this.totalBytes = 0; this.movedBytes = 0; this.startAt = 0; this.endAt = 0;
+    this.lastSampleAt = 0; this.lastSampleBytes = 0; this.speed = 0; this.success = null;
+    this.failNote = ""; this.render();
+  },
+  render: function(){
+    $("dgState").textContent = t(this.stateKey);
+    $("dgPath").textContent = this.pathType === null ? t("pathUnknown")
+      : (this.pathType === "relay" ? t("pathRelay") : t("pathDirect") + (this.pathDetail ? " (" + this.pathDetail + ")" : ""));
+    $("dgMoved").textContent = fmtBytes(this.movedBytes) + (this.totalBytes ? " / " + fmtBytes(this.totalBytes) : "");
+    $("dgSpeed").textContent = this.speed > 0 ? fmtBytes(this.speed) + "/s" : "-";
+    var remain = this.totalBytes - this.movedBytes;
+    $("dgEta").textContent = (this.totalBytes && remain <= 0) ? t("etaDone")
+      : (this.speed > 0 && this.totalBytes ? fmtDur(remain / this.speed) : "-");
+    var dur = this.startAt ? ((this.endAt || Date.now()) - this.startAt) / 1000 : 0;
+    $("dgDur").textContent = this.startAt ? fmtDur(dur) : "-";
+  },
+  sample: function(){
+    var now = Date.now();
+    if (this.lastSampleAt){
+      var dt = (now - this.lastSampleAt) / 1000;
+      if (dt >= 0.5){
+        var inst = (this.movedBytes - this.lastSampleBytes) / dt;
+        this.speed = this.speed ? (this.speed * 0.6 + inst * 0.4) : inst;
+        this.lastSampleAt = now; this.lastSampleBytes = this.movedBytes;
+      }
+    } else { this.lastSampleAt = now; this.lastSampleBytes = this.movedBytes; }
+    this.render();
+  },
+  summary: function(){
+    var dur = this.startAt ? (((this.endAt || Date.now()) - this.startAt) / 1000) : 0;
+    var avg = dur > 0 ? this.movedBytes / dur : 0;
+    var path = this.pathType === null ? "unknown"
+      : (this.pathType === "relay" ? "relay" : "direct" + (this.pathDetail ? " (" + this.pathDetail + ")" : ""));
+    var result = this.success === null ? "incomplete" : (this.success ? "success" : "failed" + (this.failNote ? ": " + this.failNote : ""));
+    return [
+      "ZeroServer connection test",
+      "Time: " + new Date().toISOString(),
+      "Role: " + this.role,
+      "Path: " + path,
+      "Browser: " + navigator.userAgent,
+      "Total size: " + fmtBytes(this.totalBytes) + " (" + this.totalBytes + " bytes)",
+      "Transferred: " + fmtBytes(this.movedBytes),
+      "Duration: " + (dur ? dur.toFixed(1) + " s" : "-"),
+      "Average speed: " + (avg ? fmtBytes(avg) + "/s" : "-"),
+      "Result: " + result
+    ].join("\n");
+  }
+};
+$("copyTestBtn").addEventListener("click", function(){ copyText(Diag.summary(), t("testCopied")); });
+
+/* Read the live RTCPeerConnection and classify the chosen ICE path. */
+function classifyPath(pc, done){
+  if (!pc || !pc.getStats) { done(null, ""); return; }
+  pc.getStats().then(function(stats){
+    var pair = null, cands = {};
+    stats.forEach(function(r){
+      if (r.type === "candidate-pair" && (r.state === "succeeded" || r.nominated) && r.selected !== false){
+        if (!pair || r.state === "succeeded") pair = r;
+      }
+      if (r.type === "local-candidate" || r.type === "remote-candidate") cands[r.id] = r;
+    });
+    if (!pair){ done(null, ""); return; }
+    var local = cands[pair.localCandidateId], remote = cands[pair.remoteCandidateId];
+    var lt = local ? local.candidateType : "", rt = remote ? remote.candidateType : "";
+    if (lt === "relay" || rt === "relay"){ done("relay", "relay"); return; }
+    done("direct", lt || rt || "");
+  }).catch(function(){ done(null, ""); });
+}
+function watchPath(pc){
+  var tries = 0;
+  var iv = setInterval(function(){
+    tries++;
+    classifyPath(pc, function(type, detail){
+      if (type){ Diag.pathType = type; Diag.pathDetail = detail; Diag.render(); clearInterval(iv); }
+      if (tries > 20) clearInterval(iv);
+    });
+  }, 2000);
+}
+
+/* ---------------- shared peer config ---------------- */
+var PEER_OPTS = {
+  debug: 0,
+  config: { iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" }
+  ]}
+};
+var CHUNK = 256 * 1024;          /* 256 KB */
+var WINDOW_BYTES = 8 * 1024 * 1024;  /* pause sending above ~8 MB unacked */
+var ACK_EVERY = 32;              /* receiver acks every 32 chunks */
+var BIG_FILE = 300 * 1024 * 1024;    /* memory fallback warning threshold */
+function newPeerId(){
+  var chars = "abcdefghjkmnpqrstuvwxyz23456789", s = "";
+  for (var i = 0; i < 10; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return "zeroserver-" + s;
+}
+function underlyingDC(conn){
+  return conn.dataChannel || conn._dc || null;
+}
+
+/* ================================================================
+   Engines. Wire protocol (JSON control messages, binary = chunks):
+     hello    receiver -> sender   channel is open, send meta
+     meta     sender   -> receiver file list + chunk counts
+     accept   receiver -> sender   user pressed accept
+     ready    receiver -> sender   save target for file i is set
+     ack      receiver -> sender   cumulative chunks/bytes for file i
+     fileend  sender   -> receiver file i finished, carries sha256
+     verdict  receiver -> sender   hash comparison result for file i
+     done     sender   -> receiver everything sent and verified
+     bye      either               polite close
+   ================================================================ */
+function rtcOf(conn){ return (conn && conn.peerConnection) || null; }
+function isControlMsg(d){
+  return !!d && typeof d === "object" && !(d instanceof ArrayBuffer) &&
+         !ArrayBuffer.isView(d) && !(window.Blob && d instanceof Blob) &&
+         typeof d.kind === "string";
+}
+function pct(done, total){ return total > 0 ? Math.min(100, Math.round(done * 100 / total)) : 100; }
+
+var ticker = null;
+function startTicker(){
+  if (ticker) return;
+  ticker = setInterval(function(){ Diag.sample(); }, 500);
+}
+function stopTicker(){
+  if (ticker){ clearInterval(ticker); ticker = null; }
+  Diag.endAt = Date.now(); Diag.sample();
+}
+
+/* ---------------- language toggle + easter egg ---------------- */
+$("lang-id").addEventListener("click", function(){ setLang("id"); });
+$("lang-en").addEventListener("click", function(){ setLang("en"); });
+function setLang(l){
+  if (lang === l) return;
+  lang = l; applyI18n();
+  if (typeof renderSendList === "function") renderSendList();
+  if (typeof renderRecvList === "function") renderRecvList();
+  Diag.render();
+}
+(function(){
+  var taps = 0, last = 0;
+  $("logo").addEventListener("click", function(){
+    var now = Date.now();
+    taps = (now - last < 700) ? taps + 1 : 1;
+    last = now;
+    if (taps >= 3){
+      taps = 0;
+      console.log("ZeroServer - dibuat oleh ptraaa");
+      toast("dibuat oleh ptraaa");
+    }
+  });
+})();
+
+/* ================================================================
+   SENDER
+   ================================================================ */
+var S = {
+  files: [], peer: null, conn: null, link: "",
+  ackedFile: 0, sentFile: 0, ackedTotal: 0,
+  waiters: {}, rows: [], active: false, dead: false
+};
+function sMeta(){
+  var out = [];
+  for (var i = 0; i < S.files.length; i++){
+    var f = S.files[i];
+    out.push({ name: f.name, size: f.size, type: f.type || "", totalChunks: Math.ceil(f.size / CHUNK) });
+  }
+  return out;
+}
+function sTotalSize(){
+  var n = 0; for (var i = 0; i < S.files.length; i++) n += S.files[i].size;
+  return n;
+}
+function renderSendList(){
+  var ul = $("sendList"); ul.innerHTML = "";
+  for (var i = 0; i < S.files.length; i++){
+    var f = S.files[i], li = document.createElement("li");
+    var nm = document.createElement("div"); nm.className = "fname"; nm.textContent = f.name;
+    var mt = document.createElement("div"); mt.className = "fmeta"; mt.textContent = fmtBytes(f.size);
+    li.appendChild(nm); li.appendChild(mt); ul.appendChild(li);
+  }
+  $("sendTotal").textContent = S.files.length
+    ? S.files.length + " " + t("totalFiles") + " - " + fmtBytes(sTotalSize()) : "";
+  $("createBtn").disabled = !S.files.length || S.active;
+}
+function addSendFiles(list){
+  for (var i = 0; i < list.length; i++) S.files.push(list[i]);
+  renderSendList();
+}
+$("pickBtn").addEventListener("click", function(){ $("fileInput").click(); });
+$("fileInput").addEventListener("change", function(){
+  addSendFiles(this.files); this.value = "";
+});
+(function(){
+  var dz = $("dropzone");
+  dz.addEventListener("dragover", function(e){ e.preventDefault(); dz.classList.add("over"); });
+  dz.addEventListener("dragleave", function(){ dz.classList.remove("over"); });
+  dz.addEventListener("drop", function(e){
+    e.preventDefault(); dz.classList.remove("over");
+    if (e.dataTransfer && e.dataTransfer.files) addSendFiles(e.dataTransfer.files);
+  });
+})();
+function buildSendProgress(){
+  var box = $("sendProgress"); box.innerHTML = ""; S.rows = [];
+  var ul = document.createElement("ul"); ul.className = "files";
+  for (var i = 0; i < S.files.length; i++){
+    var f = S.files[i], li = document.createElement("li");
+    var nm = document.createElement("div"); nm.className = "fname"; nm.textContent = f.name;
+    var badge = document.createElement("span"); badge.className = "badge wait"; badge.textContent = t("pendingBadge");
+    nm.appendChild(badge);
+    var barWrap = document.createElement("div"); barWrap.className = "bar";
+    var bar = document.createElement("div"); barWrap.appendChild(bar);
+    var mt = document.createElement("div"); mt.className = "fmeta"; mt.textContent = "0 / " + fmtBytes(f.size);
+    li.appendChild(nm); li.appendChild(barWrap); li.appendChild(mt);
+    ul.appendChild(li);
+    S.rows.push({ bar: bar, badge: badge, meta: mt });
+  }
+  box.appendChild(ul);
+}
+function sRowUpdate(i, doneBytes, state){
+  var r = S.rows[i]; if (!r) return;
+  var size = S.files[i].size;
+  r.bar.style.width = pct(doneBytes, size) + "%";
+  r.meta.textContent = fmtBytes(Math.min(doneBytes, size)) + " / " + fmtBytes(size);
+  if (state === "active"){ r.badge.className = "badge wait"; r.badge.textContent = t("activeBadge"); }
+  if (state === "ok"){ r.badge.className = "badge ok"; r.badge.textContent = t("verified"); }
+  if (state === "bad"){ r.badge.className = "badge bad"; r.badge.textContent = t("failedBadge"); }
+}
+function sWait(key){
+  return new Promise(function(res, rej){ S.waiters[key] = { res: res, rej: rej }; });
+}
+function sResolve(key, val){
+  var w = S.waiters[key]; if (w){ delete S.waiters[key]; w.res(val); }
+}
+function sFailAll(err){
+  for (var k in S.waiters){ S.waiters[k].rej(err); }
+  S.waiters = {};
+}
+function sDie(note){
+  if (S.dead) return;
+  S.dead = true; stopTicker();
+  Diag.success = false; Diag.failNote = note || "";
+  Diag.stateKey = "stateFailed"; Diag.render();
+  sFailAll(new Error(note || "closed"));
+}
+$("createBtn").addEventListener("click", function(){
+  if (!S.files.length || S.active) return;
+  S.active = true; renderSendList();
+  $("pickBtn").disabled = true; $("createBtn").disabled = true;
+  Diag.reset(t("summaryRoleSend"));
+  Diag.totalBytes = sTotalSize(); Diag.render();
+  var peer = new Peer(newPeerId(), PEER_OPTS);
+  S.peer = peer;
+  peer.on("open", function(id){
+    S.link = location.href.split("#")[0] + "#/r/" + id;
+    $("shareLink").value = S.link;
+    var qb = $("qrBox"); qb.innerHTML = "";
+    try {
+      var qr = qrcode(0, "M"); qr.addData(S.link); qr.make();
+      qb.innerHTML = qr.createSvgTag(5, 8);
+    } catch (e) { qb.innerHTML = ""; }
+    $("shareCard").classList.remove("hidden");
+    buildSendProgress();
+    $("sendStatus").textContent = t("waitingPeer");
+    Diag.stateKey = "stateWaiting"; Diag.render();
+  });
+  peer.on("connection", function(conn){
+    if (S.conn){ try { conn.close(); } catch (e) {} return; }
+    S.conn = conn; wireSenderConn(conn);
+  });
+  peer.on("error", function(err){
+    if (err && err.type === "unavailable-id" && !S.conn) return; /* broker hiccup; link may still work */
+    $("sendStatus").textContent = t("errGeneric");
+    sDie(err && err.type ? err.type : "peer error");
+  });
+});
+$("copyBtn").addEventListener("click", function(){ copyText(S.link, t("copied")); });
+$("waBtn").addEventListener("click", function(){
+  if (S.link) window.open("https://wa.me/?text=" + encodeURIComponent(S.link), "_blank");
+});
+$("againBtn").addEventListener("click", function(){
+  location.hash = ""; location.reload();
+});
+function wireSenderConn(conn){
+  conn.on("open", function(){
+    $("sendStatus").textContent = t("connected");
+    Diag.stateKey = "stateConnecting"; Diag.render();
+    watchPath(rtcOf(conn));
+  });
+  conn.on("data", function(data){
+    if (!isControlMsg(data)) return;
+    if (data.kind === "hello"){
+      conn.send({ kind: "meta", files: sMeta() });
+    } else if (data.kind === "accept"){
+      sResolve("accept", true);
+    } else if (data.kind === "ready"){
+      sResolve("ready:" + data.index, true);
+    } else if (data.kind === "ack"){
+      S.ackedFile = Math.max(S.ackedFile, data.bytes || 0);
+      S.ackedTotal = Math.min(sTotalSize(), ackedThrough(data.index) );
+      Diag.movedBytes = S.ackedTotal; Diag.sample();
+    } else if (data.kind === "verdict"){
+      sResolve("verdict:" + data.index, data);
+    }
+  });
+  conn.on("close", function(){
+    if (!Diag.success) { $("sendStatus").textContent = t("errGone"); sDie("connection closed"); }
+  });
+  conn.on("error", function(){
+    if (!Diag.success) { $("sendStatus").textContent = t("errGeneric"); sDie("connection error"); }
+  });
+  sWait("accept").then(function(){
+    Diag.stateKey = "stateTransfer"; Diag.startAt = Date.now(); Diag.lastSampleAt = 0; Diag.render();
+    startTicker();
+    return runSend(conn);
+  }).catch(function(){ /* closed or failed; handled in sDie */ });
+}
+function ackedThrough(idx){
+  var n = S.ackedFile;
+  for (var i = 0; i < idx && i < S.files.length; i++) n += S.files[i].size;
+  return n;
+}
+function runSend(conn){
+  var chain = Promise.resolve();
+  S.files.forEach(function(file, i){
+    chain = chain.then(function(){ return streamFile(conn, file, i); });
+  });
+  return chain.then(function(){
+    conn.send({ kind: "done" });
+    stopTicker();
+    Diag.success = true; Diag.stateKey = "stateDone"; Diag.render();
+    S.dead = true;
+    $("sendStatus").textContent = t("doneOk");
+    $("againBtn").classList.remove("hidden");
+  }).catch(function(err){
+    if (!S.dead) sDie(err && err.message ? err.message : "failed");
+  });
+}
+function streamFile(conn, file, idx){
+  S.ackedFile = 0; S.sentFile = 0;
+  sRowUpdate(idx, 0, "active");
+  return sWait("ready:" + idx).then(function(){
+    var hasher = new SHA256.Hasher();
+    var offset = 0;
+    function windowFull(){
+      var dc = underlyingDC(conn);
+      var buffered = dc ? dc.bufferedAmount : 0;
+      return (S.sentFile - S.ackedFile) > WINDOW_BYTES || buffered > WINDOW_BYTES;
+    }
+    function step(){
+      if (S.dead) return Promise.reject(new Error("closed"));
+      if (offset >= file.size){
+        var hex = hasher.digestHex();
+        conn.send({ kind: "fileend", index: idx, sha256: hex });
+        return sWait("verdict:" + idx).then(function(v){
+          if (v && v.ok){ sRowUpdate(idx, file.size, "ok"); return; }
+          sRowUpdate(idx, S.ackedFile, "bad");
+          $("sendStatus").textContent = t("mismatch");
+          throw new Error("hash mismatch");
+        });
+      }
+      if (windowFull()) return sleep(40).then(step);
+      var end = Math.min(offset + CHUNK, file.size);
+      return file.slice(offset, end).arrayBuffer().then(function(buf){
+        hasher.update(new Uint8Array(buf));
+        conn.send(buf);
+        offset = end; S.sentFile = offset;
+        return step();
+      });
+    }
+    return step();
+  });
+}
+
+/* ================================================================
+   RECEIVER
+   ================================================================ */
+var R = {
+  peer: null, conn: null, files: [], handles: [], modes: [],
+  cur: -1, hasher: null, writable: null, memParts: [], recvBytes: 0,
+  chain: Promise.resolve(), dead: false, accepted: false
+};
+var HAS_FS = typeof window.showSaveFilePicker === "function";
+function renderRecvList(){
+  var ul = $("recvList"); ul.innerHTML = "";
+  for (var i = 0; i < R.files.length; i++){
+    var f = R.files[i], li = document.createElement("li");
+    var nm = document.createElement("div"); nm.className = "fname"; nm.textContent = f.name;
+    var badge = document.createElement("span"); badge.className = "badge wait"; badge.textContent = t("pendingBadge");
+    badge.id = "rbadge" + i; nm.appendChild(badge);
+    var mt = document.createElement("div"); mt.className = "fmeta"; mt.textContent = fmtBytes(f.size);
+    var barWrap = document.createElement("div"); barWrap.className = "bar";
+    var bar = document.createElement("div"); bar.id = "rbar" + i; barWrap.appendChild(bar);
+    li.appendChild(nm); li.appendChild(mt); li.appendChild(barWrap);
+    var dl = document.createElement("div"); dl.id = "rdl" + i; li.appendChild(dl);
+    ul.appendChild(li);
+  }
+  var total = 0; for (var j = 0; j < R.files.length; j++) total += R.files[j].size;
+  $("recvTotal").textContent = R.files.length
+    ? R.files.length + " " + t("totalFiles") + " - " + fmtBytes(total) : "";
+}
+function rBadge(i, state){
+  var b = $("rbadge" + i); if (!b) return;
+  if (state === "active"){ b.className = "badge wait"; b.textContent = t("activeBadge"); }
+  if (state === "ok"){ b.className = "badge ok"; b.textContent = t("verified"); }
+  if (state === "bad"){ b.className = "badge bad"; b.textContent = t("failedBadge"); }
+}
+function rBar(i, doneBytes){
+  var b = $("rbar" + i); if (!b) return;
+  b.style.width = pct(doneBytes, R.files[i].size) + "%";
+}
+function rDie(note, msgKey){
+  if (R.dead) return;
+  R.dead = true; stopTicker();
+  Diag.success = false; Diag.failNote = note || "";
+  Diag.stateKey = "stateFailed"; Diag.render();
+  var box = $("recvErr"); box.textContent = t(msgKey || "errGeneric");
+  box.classList.remove("hidden");
+}
+function initReceiver(peerId){
+  $("view-send").classList.add("hidden");
+  $("view-recv").classList.remove("hidden");
+  $("recvFrom").textContent = t("fromPeer");
+  $("recvStatus").textContent = t("connecting");
+  Diag.reset(t("summaryRoleRecv"));
+  Diag.stateKey = "stateConnecting"; Diag.render();
+  var peer = new Peer(PEER_OPTS);
+  R.peer = peer;
+  peer.on("open", function(){
+    var conn = peer.connect(peerId, { reliable: true });
+    R.conn = conn; wireRecvConn(conn);
+  });
+  peer.on("error", function(err){
+    if (err && err.type === "peer-unavailable") rDie("sender unreachable", "errNoPeer");
+    else rDie(err && err.type ? err.type : "peer error", "errGeneric");
+  });
+}
+function wireRecvConn(conn){
+  conn.on("open", function(){
+    $("recvStatus").textContent = t("receivingWait");
+    watchPath(rtcOf(conn));
+    conn.send({ kind: "hello" });
+  });
+  conn.on("data", function(data){
+    if (isControlMsg(data)){
+      if (data.kind === "meta") onMeta(data);
+      else if (data.kind === "fileend") enqueue(function(){ return finishFile(data); });
+      else if (data.kind === "done") onAllDone();
+      return;
+    }
+    enqueue(function(){ return takeChunk(data); });
+  });
+  conn.on("close", function(){
+    if (!R.dead && Diag.success !== true) rDie("connection closed", "errGone");
+  });
+  conn.on("error", function(){
+    if (!R.dead && Diag.success !== true) rDie("connection error", "errGeneric");
+  });
+}
+function enqueue(fn){ R.chain = R.chain.then(fn).catch(function(e){ rDie(e && e.message ? e.message : "error", "errGeneric"); }); }
+function onMeta(data){
+  R.files = data.files || [];
+  var total = 0, big = false, i;
+  for (i = 0; i < R.files.length; i++){ total += R.files[i].size; if (R.files[i].size > BIG_FILE) big = true; }
+  Diag.totalBytes = total; Diag.render();
+  renderRecvList();
+  if (big && !HAS_FS){
+    var w = $("recvWarn"); w.textContent = t("warnBig"); w.classList.remove("hidden");
+  }
+  $("recvStatus").textContent = t("senderReady");
+  $("acceptBtn").disabled = false;
+}
+$("acceptBtn").addEventListener("click", function(){
+  if (R.accepted || !R.files.length) return;
+  R.accepted = true;
+  $("acceptBtn").disabled = true;
+  prepareAll().then(function(){
+    Diag.stateKey = "stateTransfer"; Diag.startAt = Date.now(); Diag.lastSampleAt = 0; Diag.render();
+    startTicker();
+    $("recvStatus").textContent = t("receiving");
+    R.conn.send({ kind: "accept" });
+    return beginFile(0);
+  }).catch(function(){
+    /* user cancelled a save dialog: let them press accept again */
+    R.accepted = false; $("acceptBtn").disabled = false;
+    $("recvStatus").textContent = t("senderReady");
+  });
+});
+function prepareAll(){
+  /* Ask for every save location up front, inside the accept tap,
+     so later files never need a fresh user gesture. */
+  var chain = Promise.resolve();
+  if (!HAS_FS){
+    R.files.forEach(function(f, i){ R.modes[i] = "mem"; });
+    return chain;
+  }
+  R.files.forEach(function(f, i){
+    chain = chain.then(function(){
+      $("recvStatus").textContent = t("pickSave") + " " + f.name;
+      return window.showSaveFilePicker({ suggestedName: f.name }).then(function(h){
+        R.handles[i] = h; R.modes[i] = "fs";
+      }).catch(function(err){
+        if (err && err.name === "AbortError") throw err;
+        R.modes[i] = "mem"; /* picker blocked for this one: fall back */
+      });
+    });
+  });
+  return chain;
+}
+function beginFile(i){
+  R.cur = i; R.recvBytes = 0; R.memParts = [];
+  R.hasher = new SHA256.Hasher();
+  rBadge(i, "active");
+  var openWrite = (R.modes[i] === "fs" && R.handles[i])
+    ? R.handles[i].createWritable().then(function(w){ R.writable = w; })
+    : Promise.resolve();
+  return openWrite.then(function(){ R.conn.send({ kind: "ready", index: i }); });
+}
+function takeChunk(data){
+  if (R.cur < 0) return Promise.resolve();
+  var toU8 = (data instanceof ArrayBuffer) ? Promise.resolve(new Uint8Array(data))
+    : (window.Blob && data instanceof Blob) ? data.arrayBuffer().then(function(b){ return new Uint8Array(b); })
+    : Promise.resolve(new Uint8Array(data));
+  return toU8.then(function(u8){
+    R.hasher.update(u8);
+    R.recvBytes += u8.length;
+    Diag.movedBytes = movedThrough(R.cur);
+    Diag.sample();
+    rBar(R.cur, R.recvBytes);
+    var writing = R.writable ? R.writable.write(u8) : (R.memParts.push(u8), Promise.resolve());
+    var chunksDone = Math.round(R.recvBytes / CHUNK);
+    if (chunksDone > 0 && chunksDone % ACK_EVERY === 0){
+      R.conn.send({ kind: "ack", index: R.cur, chunks: chunksDone, bytes: R.recvBytes });
+    }
+    return writing;
+  });
+}
+function movedThrough(idx){
+  var n = R.recvBytes;
+  for (var i = 0; i < idx && i < R.files.length; i++) n += R.files[i].size;
+  return n;
+}
+function finishFile(msg){
+  var i = msg.index, f = R.files[i];
+  if (!f || i !== R.cur) return Promise.resolve();
+  var closeIt = R.writable ? R.writable.close() : Promise.resolve();
+  R.writable = null;
+  return closeIt.then(function(){
+    var hex = R.hasher.digestHex();
+    var ok = (hex === msg.sha256);
+    /* make sure the sender window sees full receipt before the verdict */
+    R.conn.send({ kind: "ack", index: i, chunks: f.totalChunks, bytes: f.size });
+    R.conn.send({ kind: "verdict", index: i, ok: ok });
+    if (ok){
+      rBadge(i, "ok"); rBar(i, f.size);
+      if (R.modes[i] === "mem") offerDownload(i);
+      if (i + 1 < R.files.length) return beginFile(i + 1);
+    } else {
+      rBadge(i, "bad");
+      var box = $("recvErr"); box.textContent = t("mismatch"); box.classList.remove("hidden");
+      rDie("hash mismatch", "errGeneric"); $("recvErr").textContent = t("mismatch");
+    }
+  });
+}
+function offerDownload(i){
+  var f = R.files[i];
+  var blob = new Blob(R.memParts, { type: f.type || "application/octet-stream" });
+  R.memParts = [];
+  var url = URL.createObjectURL(blob);
+  var host = $("rdl" + i); if (!host) return;
+  var a = document.createElement("a");
+  a.href = url; a.download = f.name; a.className = "btn ghost small dlbtn";
+  a.style.display = "inline-block"; a.style.textDecoration = "none";
+  a.textContent = "Download: " + f.name;
+  host.appendChild(a);
+  /* nudge an automatic download too; the button stays as fallback */
+  var ghost = document.createElement("a");
+  ghost.href = url; ghost.download = f.name;
+  document.body.appendChild(ghost); ghost.click();
+  document.body.removeChild(ghost);
+}
+function onAllDone(){
+  stopTicker();
+  Diag.success = true; Diag.stateKey = "stateDone"; Diag.render();
+  R.dead = true;
+  $("recvStatus").textContent = t("doneRecv");
+  $("sendBackBtn").classList.remove("hidden");
+}
+$("sendBackBtn").addEventListener("click", function(){
+  location.href = location.href.split("#")[0];
+});
+
+/* ---------------- boot ---------------- */
+applyI18n();
+Diag.render();
+var routeMatch = location.hash.match(/^#\/r\/(.+)$/);
+if (routeMatch) initReceiver(decodeURIComponent(routeMatch[1]));
+else renderSendList();
+</script>
+</body>
+</html>
