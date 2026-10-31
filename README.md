@@ -19,27 +19,32 @@ The interface is Indonesian by default with an English toggle, and it is mobile-
 - The whole product is a single static HTML file. It loads two open-source libraries from a CDN (PeerJS for signalling, qrcode-generator for the QR code) and otherwise runs entirely in the browser.
 - PeerJS's public broker introduces the two browsers to each other (signalling only). After that, file data never touches any server: it flows peer-to-peer over a DTLS-encrypted WebRTC data channel, using public STUN servers to find a path.
 - Files are sent in 256 KB chunks with flow control. The receiver hashes every chunk as it arrives, so the final integrity check covers the exact bytes received.
-- On Chrome and Android, received files stream straight to disk through the File System Access API. Other browsers hold the file in memory and offer it as a download when complete.
+- On Chrome and Android, received files stream straight to disk through the File System Access API. Browsers without it (Firefox, Safari) stream into the browser's origin-private on-device storage (OPFS) instead and offer the finished file as a download; only when neither API exists is a file held in memory.
 - The page includes a small connection-test panel: it shows whether the connection ran direct or via relay, how much moved, at what speed, and copies a plain-text result you can share for debugging.
 
 ## Self-host in one step
 
 Copy `index.html` to any static host — GitHub Pages, Cloudflare Pages, Netlify, a plain web server, even a USB stick served locally. There is nothing to install, no build step, no backend, no database. That is the whole deployment.
 
+## The pledge
+
+ZeroServer will never add accounts, ads, or features locked behind a paywall. It does not need to: there is no server to pay for. And because the whole tool is one file that anyone can copy, you own it outright — even if this page disappears tomorrow, every copy already out there keeps working forever.
+
 ## How a transfer works
 
 1. The sender picks one or more files — or a whole folder — and presses "Buat link kirim" (Create send link).
-2. The page creates a one-time peer ID and shows a link plus QR code. The sender shares the link, e.g. via WhatsApp.
+2. The page creates a one-time peer ID and shows a link plus QR code. The sender shares the link, e.g. via WhatsApp — the pre-composed message reminds both sides to keep their pages open. Optionally, the sender can protect the link with a 4-digit PIN, make it one-shot (dead after the first completed transfer), or let it expire 30 minutes after creation.
 3. The receiver opens the link, sees the file list and total size, and presses "Terima file" (Accept files). If the browser supports it, they pick where each file should be saved.
 4. Files stream device-to-device with progress, speed, and time remaining shown on both sides. While a transfer runs, the page uses the Wake Lock API to keep the screen on, so a phone falling asleep does not cut the transfer.
 5. Each file is verified with SHA-256 at the end. A green badge means the copy is identical to the original.
 6. If the connection drops mid-transfer, the receiver can reconnect to the same link. Files that already passed verification are skipped; only the file that was interrupted starts over.
+7. When everything arrives verified, the receiver gets a one-tap button to send a short "done, complete and verified" message back to the sender on WhatsApp.
 
 ## Known limits
 
 - **The sender must stay online.** There is no store-and-forward: if the sender closes the tab or loses connection, the transfer stops. ZeroServer is a live handoff tool — best while you are on a chat or call with the other person.
 - **Some networks will not connect in v1.** Version 1 uses STUN only, with no relay (TURN) server. Most home and mobile connections connect directly, but strict corporate firewalls and some carrier NAT setups can block a direct path. If a connection fails, try another network (e.g. switch between mobile data and Wi-Fi).
-- **Safari and Firefox have large-file limits.** Browsers without the File System Access API hold incoming files in memory, so a file over roughly 300 MB can crash the tab. For big files, receive in Chrome on Android or desktop Chrome.
+- **Large files outside Chrome need care.** Without the File System Access API, ZeroServer streams into OPFS on-device storage where that exists (Firefox), so big files no longer sit in RAM. Only browsers with neither API hold incoming files in memory, and there a file over roughly 300 MB can crash the tab. For the biggest files, receive in Chrome on Android or desktop Chrome.
 - One receiver per link in v1, and no transfer history or accounts — by design.
 
 ## Run a connection test
@@ -60,6 +65,8 @@ MIT — see [LICENSE](LICENSE). Copyright (c) ptraaa.
 ZeroServer is a single-file, open-source web page for sending files directly between two browsers over WebRTC. No file server, no accounts, no service-imposed size cap, and an end-to-end SHA-256 integrity check on every file. The sender must stay online during the transfer; v1 is STUN-only, so a minority of networks cannot connect directly; Chrome/Android is the best-supported receiving browser for very large files. Self-hosting is copying one HTML file to any static host.
 
 ## Changelog
+
+**v1.2** — WhatsApp handoff kit: the share message now carries stay-open notes for both sides, the receiver gets a one-tap "done, complete and verified" message back to the sender, and links opened inside chat-app browsers show a warning with a copy-link button. A same-Wi-Fi badge appears when both devices share a network. Senders can optionally protect a link with a 4-digit PIN, make it one-shot, or let it expire after 30 minutes. A pre-flight network check gives the sender an honest first guess at whether direct connections will work. Receivers on Firefox and Safari now stream into OPFS storage instead of holding files in RAM.
 
 **v1.1** — Wake Lock keeps the screen on during a transfer; send a whole folder at once; Open Graph / Twitter link previews; a "share this tool" button; resume after reconnect — if the connection drops, the receiver can reconnect to the same link and already-verified files are skipped instead of resent.
 
