@@ -184,6 +184,7 @@
     <table>
       <tr><td class="k" data-i18n="dState"></td><td class="v" id="dgState">-</td></tr>
       <tr><td class="k" data-i18n="dPreflight"></td><td class="v" id="dgPreflight">-</td></tr>
+      <tr><td class="k" data-i18n="dRelay"></td><td class="v" id="dgRelay">-</td></tr>
       <tr><td class="k" data-i18n="dPath"></td><td class="v" id="dgPath">-</td></tr>
       <tr><td class="k" data-i18n="dMoved"></td><td class="v" id="dgMoved">-</td></tr>
       <tr><td class="k" data-i18n="dSpeed"></td><td class="v" id="dgSpeed">-</td></tr>
@@ -309,6 +310,10 @@ var I18N = {
     pinWrong: "PIN salah.",
     pinTries: "kesempatan tersisa.",
     dPreflight: "Cek jaringan awal",
+    dRelay: "Relay",
+    relayChecking: "memeriksa...",
+    relayYes: "tersedia, siap bantu sambungan jauh",
+    relayNo: "tidak tersedia, pakai jalur langsung",
     preflightOpen: "kelihatannya terbuka untuk koneksi langsung",
     preflightRestricted: "kelihatannya terbatas, koneksi langsung mungkin sulit",
     preflightUnknown: "belum bisa dipastikan",
@@ -404,6 +409,10 @@ var I18N = {
     pinWrong: "Wrong PIN.",
     pinTries: "tries left.",
     dPreflight: "Network pre-check",
+    dRelay: "Relay",
+    relayChecking: "checking...",
+    relayYes: "available, ready to help long-distance connections",
+    relayNo: "unavailable, direct paths only",
     preflightOpen: "looks open for direct connections",
     preflightRestricted: "looks restricted, direct connections may be hard",
     preflightUnknown: "could not tell",
@@ -656,11 +665,11 @@ function updateWifiBadge(){
 
 /* ---------------- pre-flight network check ----------------
    One throwaway RTCPeerConnection gathers ICE candidates with the
-   same STUN servers a real transfer would use. Seeing an srflx
+   same STUN servers a real transfer would start from. Seeing an srflx
    candidate means the network hands out a public-facing address,
    so direct connections look possible. Host-only means the browser
    never got one, so direct connections look restricted. Relay
-   cannot be tested (v1.2 has no TURN). Honest hint, never a gate. */
+   Honest hint, never a gate. The relay itself is fetched below. */
 var Preflight = { state: null };   /* null | "open" | "restricted" | "unknown" */
 function renderPreflight(){
   var el = $("dgPreflight"); if (!el) return;
@@ -704,6 +713,48 @@ var PEER_OPTS = {
     { urls: "stun:stun2.l.google.com:19302" }
   ]}
 };
+
+/* ---------------- TURN relay (v1.3) ----------------
+   A tiny worker mints short-lived TURN credentials so connections
+   that cannot go direct (different networks, strict NAT, carrier
+   CGNAT) can relay instead of failing. Files still flow between the
+   two browsers only; the relay forwards encrypted traffic and can
+   never read it. If the worker is unreachable, transfers fall back
+   to the direct-only config above, exactly like before. */
+var TURN_URL = "https://zeroserver-turn.gagalinc.workers.dev/";
+var ICE_READY = false, icePromise = null;
+function renderRelay(state){
+  var el = $("dgRelay"); if (!el) return;
+  el.textContent = t(state === "yes" ? "relayYes" : state === "no" ? "relayNo" : "relayChecking");
+}
+function ensureIce(){
+  if (icePromise) return icePromise;
+  renderRelay("checking");
+  icePromise = new Promise(function(resolve){
+    var settled = false;
+    function done(servers){
+      if (settled) return; settled = true;
+      if (servers && servers.length) {
+        PEER_OPTS.config = { iceServers: servers };
+        var hasTurn = servers.some(function(sv){
+          var u = sv.urls; u = Array.isArray(u) ? u.join(" ") : String(u || "");
+          return u.indexOf("turn:") >= 0 || u.indexOf("turns:") >= 0;
+        });
+        renderRelay(hasTurn ? "yes" : "no");
+      } else renderRelay("no");
+      ICE_READY = true; resolve();
+    }
+    setTimeout(function(){ done(null); }, 5000);
+    try {
+      var ctl = ("AbortController" in window) ? new AbortController() : null;
+      var timer = setTimeout(function(){ if (ctl) ctl.abort(); }, 4000);
+      fetch(TURN_URL, ctl ? { signal: ctl.signal } : {}).then(function(r){ return r.json(); })
+        .then(function(d){ clearTimeout(timer); done(d && d.iceServers); })
+        .catch(function(){ clearTimeout(timer); done(null); });
+    } catch (e) { done(null); }
+  });
+  return icePromise;
+}
 var CHUNK = 256 * 1024;          /* 256 KB */
 var WINDOW_BYTES = 8 * 1024 * 1024;  /* pause sending above ~8 MB unacked */
 var ACK_EVERY = 32;              /* receiver acks every 32 chunks */
@@ -968,6 +1019,7 @@ function sDisconnect(){
 }
 $("createBtn").addEventListener("click", function(){
   if (!S.files.length || S.active) return;
+  if (!ICE_READY) { ensureIce().then(function(){ $("createBtn").click(); }); return; }
   S.active = true; renderSendList();
   $("pickBtn").disabled = true; $("createBtn").disabled = true;
   Diag.reset(t("summaryRoleSend"));
@@ -1240,6 +1292,7 @@ function initReceiver(peerId){
   rConnect();
 }
 function rConnect(){
+  if (!ICE_READY) { ensureIce().then(function(){ rConnect(); }); return; }
   $("recvStatus").textContent = t("connecting");
   Diag.stateKey = "stateConnecting"; Diag.render();
   var peer = new Peer(PEER_OPTS);
@@ -1539,7 +1592,7 @@ applyI18n();
 Diag.render();
 var routeMatch = location.hash.match(/^#\/r\/(.+)$/);
 if (routeMatch) initReceiver(decodeURIComponent(routeMatch[1]));
-else { renderSendList(); preflightProbe(); }
+else { renderSendList(); ensureIce(); preflightProbe(); }
 </script>
 </body>
 </html>
