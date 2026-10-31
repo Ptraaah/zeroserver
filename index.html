@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ZeroServer — kirim file langsung, tanpa server</title>
 <meta name="description" content="ZeroServer: kirim file dari browser ke browser, langsung. Tanpa akun, tanpa upload ke server, tanpa batas ukuran dari layanan.">
+<meta property="og:title" content="ZeroServer">
+<meta property="og:description" content="Send files straight from one browser to another. No file server, no account, no size limit set by a service.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="ZeroServer">
+<meta name="twitter:description" content="Send files straight from one browser to another. No file server, no account, no size limit set by a service.">
 <style>
   :root{
     --orange:#ea580c; --orange-soft:#fff3e8; --ink:#1c1917; --muted:#78716c;
@@ -60,6 +66,8 @@
   .diag tr:last-child td{border-bottom:0}
   .hidden{display:none !important}
   footer.foot{text-align:center;color:var(--muted);font-size:13px;margin-top:22px}
+  footer.foot a{color:var(--orange);text-decoration:none;font-weight:600}
+  footer.foot a:hover{text-decoration:underline}
   #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:#1c1917;color:#fff;padding:10px 18px;border-radius:99px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   h2.sec{font-size:17px;margin:2px 0 8px}
@@ -82,6 +90,7 @@
     <p data-i18n="honest1"></p>
     <p data-i18n="honest2"></p>
     <p data-i18n="honest3"></p>
+    <p data-i18n="honest4"></p>
   </div>
 
   <!-- ============ SENDER VIEW ============ -->
@@ -92,12 +101,17 @@
         <div data-i18n="dropHint"></div>
         <div style="margin-top:14px">
           <button class="btn small" id="pickBtn" type="button"><span data-i18n="pickBtn"></span></button>
+          <button class="btn ghost small" id="pickFolderBtn" type="button" style="margin-left:8px"><span data-i18n="pickFolder"></span></button>
         </div>
       </div>
       <input type="file" id="fileInput" multiple class="hidden">
+      <input type="file" id="folderInput" webkitdirectory class="hidden">
       <ul class="files" id="sendList"></ul>
       <p class="sub" id="sendTotal"></p>
       <button class="btn" id="createBtn" type="button" disabled><span data-i18n="createLink"></span></button>
+      <div style="margin-top:10px">
+        <button class="btn ghost small" id="shareToolBtn" type="button"><span data-i18n="shareTool"></span></button>
+      </div>
     </div>
 
     <div class="card hidden" id="shareCard">
@@ -133,6 +147,7 @@
       <div id="recvProgress" style="margin-top:10px"></div>
       <div style="margin-top:12px">
         <button class="btn ghost hidden" id="sendBackBtn" type="button"><span data-i18n="sendBack"></span></button>
+        <button class="btn ghost hidden" id="reconnectBtn" type="button"><span data-i18n="reconnectBtn"></span></button>
       </div>
     </div>
   </section>
@@ -155,7 +170,11 @@
 
   <footer class="foot">
     <span data-i18n="footNote"></span><br>
-    by ptraaa
+    by ptraaa<br>
+    <a href="https://github.com/Ptraaah/zeroserver/releases" target="_blank" rel="noopener" data-i18n="footDownload"></a>
+    &middot;
+    <a href="https://trakteer.id/adel_putra2" target="_blank" rel="noopener" data-i18n="footSupport"></a>
+    <span data-i18n="footSupportNote"></span>
   </footer>
 </div>
 <div id="toast"></div>
@@ -177,14 +196,18 @@ var I18N = {
     honest1: "Tetap buka tab ini. Kalau tab pengirim ditutup, pengiriman berhenti.",
     honest2: "File berjalan langsung dari satu perangkat ke perangkat lain. Tidak ada yang diupload ke mana pun.",
     honest3: "Pengirim dan penerima harus sama-sama online selama pengiriman berlangsung.",
+    honest4: "Layar akan tetap menyala selama pengiriman berlangsung supaya transfer tidak terputus.",
     dropTitle: "Tarik file ke sini",
     dropHint: "atau pilih dari perangkat kamu",
     pickBtn: "Pilih file",
+    pickFolder: "Pilih folder",
     createLink: "Buat link kirim",
     linkReady: "Link kirim kamu",
     copyLink: "Salin link",
     copied: "Tersalin",
     shareWa: "Bagikan lewat WhatsApp",
+    shareTool: "Bagikan alat ini",
+    shareToolText: "ZeroServer - kirim file langsung dari browser ke browser, tanpa server.",
     keepOpen: "Jangan tutup tab ini sampai penerima selesai mengunduh.",
     sendAgain: "Kirim lagi",
     incomingTitle: "Ada file masuk untuk kamu",
@@ -200,6 +223,9 @@ var I18N = {
     copyTest: "Salin hasil tes",
     testCopied: "Hasil tes tersalin",
     footNote: "Satu file halaman ini. Kode terbuka, siapa pun bisa memasang salinannya sendiri.",
+    footDownload: "Unduh ZeroServer",
+    footSupport: "Dukung",
+    footSupportNote: "(bantu biaya kopi pengembangan)",
     totalFiles: "file",
     waitingPeer: "Menunggu penerima membuka link...",
     connecting: "Menghubungkan...",
@@ -217,6 +243,8 @@ var I18N = {
     errGone: "Pengirim sudah tidak online. Link ini mati kalau tab pengirim ditutup. Minta link baru ke pengirim.",
     errGeneric: "Koneksi gagal. Coba lagi, atau coba jaringan lain.",
     errNoPeer: "Tidak bisa terhubung ke pengirim. Pastikan link benar dan tab pengirim masih terbuka.",
+    connLost: "Koneksi terputus. Pastikan tab pengirim masih terbuka, lalu tekan Hubungkan lagi untuk melanjutkan. File yang sudah selesai tidak dikirim ulang.",
+    reconnectBtn: "Hubungkan lagi",
     pathDirect: "langsung",
     pathRelay: "lewat relay",
     pathUnknown: "belum diketahui",
@@ -240,14 +268,18 @@ var I18N = {
     honest1: "Keep this tab open. If the sender closes the tab, the transfer stops.",
     honest2: "Files travel directly from one device to the other. Nothing is uploaded anywhere.",
     honest3: "Sender and receiver both need to stay online while the transfer runs.",
+    honest4: "Your screen stays on while a transfer is running so it does not get interrupted.",
     dropTitle: "Drop files here",
     dropHint: "or pick them from your device",
     pickBtn: "Pick files",
+    pickFolder: "Choose folder",
     createLink: "Create send link",
     linkReady: "Your send link",
     copyLink: "Copy link",
     copied: "Copied",
     shareWa: "Share via WhatsApp",
+    shareTool: "Share this tool",
+    shareToolText: "ZeroServer - send files straight from one browser to another, no server.",
     keepOpen: "Do not close this tab until the receiver has finished downloading.",
     sendAgain: "Send again",
     incomingTitle: "Someone is sending you files",
@@ -263,6 +295,9 @@ var I18N = {
     copyTest: "Copy test result",
     testCopied: "Test result copied",
     footNote: "One single page file. Open source, anyone can host their own copy.",
+    footDownload: "Download ZeroServer",
+    footSupport: "Support",
+    footSupportNote: "(support development)",
     totalFiles: "files",
     waitingPeer: "Waiting for the receiver to open the link...",
     connecting: "Connecting...",
@@ -280,6 +315,8 @@ var I18N = {
     errGone: "The sender is no longer online. This link dies when the sender tab closes. Ask the sender for a new link.",
     errGeneric: "Connection failed. Try again, or try another network.",
     errNoPeer: "Could not reach the sender. Check the link and make sure the sender tab is still open.",
+    connLost: "Connection lost. Make sure the sender tab is still open, then tap Reconnect to continue. Files that already finished will not be sent again.",
+    reconnectBtn: "Reconnect",
     pathDirect: "direct",
     pathRelay: "relayed",
     pathUnknown: "not known yet",
@@ -562,6 +599,7 @@ function underlyingDC(conn){
      ack      receiver -> sender   cumulative chunks/bytes for file i
      fileend  sender   -> receiver file i finished, carries sha256
      verdict  receiver -> sender   hash comparison result for file i
+     have     receiver -> sender   indexes already verified (sent on reconnect, before accept)
      done     sender   -> receiver everything sent and verified
      bye      either               polite close
    ================================================================ */
@@ -573,12 +611,46 @@ function isControlMsg(d){
 }
 function pct(done, total){ return total > 0 ? Math.min(100, Math.round(done * 100 / total)) : 100; }
 
+/* ---------------- wake lock ----------------
+   Keep the screen on while a transfer is active so a phone going
+   to sleep cannot cut it. Guarded: the API is not everywhere. */
+var WakeLock = {
+  lock: null, wanted: false,
+  request: function(){
+    this.wanted = true;
+    if (!("wakeLock" in navigator)) return;
+    if (this.lock) return;
+    var self = this;
+    try {
+      navigator.wakeLock.request("screen").then(function(lk){
+        self.lock = lk;
+        lk.addEventListener("release", function(){ self.lock = null; });
+      }).catch(function(){ /* denied or not visible: not fatal */ });
+    } catch (e) {}
+  },
+  release: function(){
+    this.wanted = false;
+    if (this.lock){
+      try { this.lock.release(); } catch (e) {}
+      this.lock = null;
+    }
+  }
+};
+document.addEventListener("visibilitychange", function(){
+  if (document.visibilityState === "visible" && WakeLock.wanted && !WakeLock.lock){
+    WakeLock.request();
+  }
+});
+
 var ticker = null;
 function startTicker(){
+  WakeLock.request();
+  Diag.endAt = 0; /* a resumed transfer keeps counting duration */
   if (ticker) return;
   ticker = setInterval(function(){ Diag.sample(); }, 500);
 }
 function stopTicker(){
+  WakeLock.release();
   if (ticker){ clearInterval(ticker); ticker = null; }
   Diag.endAt = Date.now(); Diag.sample();
 }
@@ -613,7 +685,7 @@ function setLang(l){
 var S = {
   files: [], peer: null, conn: null, link: "",
   ackedFile: 0, sentFile: 0, ackedTotal: 0,
-  waiters: {}, rows: [], active: false, dead: false
+  waiters: {}, rows: [], active: false, dead: false, finished: false
 };
 function sMeta(){
   var out = [];
@@ -631,7 +703,7 @@ function renderSendList(){
   var ul = $("sendList"); ul.innerHTML = "";
   for (var i = 0; i < S.files.length; i++){
     var f = S.files[i], li = document.createElement("li");
-    var nm = document.createElement("div"); nm.className = "fname"; nm.textContent = f.name;
+    var nm = document.createElement("div"); nm.className = "fname"; nm.textContent = f.webkitRelativePath || f.name;
     var mt = document.createElement("div"); mt.className = "fmeta"; mt.textContent = fmtBytes(f.size);
     li.appendChild(nm); li.appendChild(mt); ul.appendChild(li);
   }
@@ -647,6 +719,18 @@ $("pickBtn").addEventListener("click", function(){ $("fileInput").click(); });
 $("fileInput").addEventListener("change", function(){
   addSendFiles(this.files); this.value = "";
 });
+$("pickFolderBtn").addEventListener("click", function(){ $("folderInput").click(); });
+$("folderInput").addEventListener("change", function(){
+  addSendFiles(this.files); this.value = "";
+});
+$("shareToolBtn").addEventListener("click", function(){
+  var url = location.href.split("#")[0];
+  if (navigator.share){
+    navigator.share({ title: "ZeroServer", text: t("shareToolText"), url: url }).catch(function(){});
+  } else {
+    copyText(url, t("copied"));
+  }
+});
 (function(){
   var dz = $("dropzone");
   dz.addEventListener("dragover", function(e){ e.preventDefault(); dz.classList.add("over"); });
@@ -661,7 +745,7 @@ function buildSendProgress(){
   var ul = document.createElement("ul"); ul.className = "files";
   for (var i = 0; i < S.files.length; i++){
     var f = S.files[i], li = document.createElement("li");
-    var nm = document.createElement("div"); nm.className = "fname"; nm.textContent = f.name;
+    var nm = document.createElement("div"); nm.className = "fname"; nm.textContent = f.webkitRelativePath || f.name;
     var badge = document.createElement("span"); badge.className = "badge wait"; badge.textContent = t("pendingBadge");
     nm.appendChild(badge);
     var barWrap = document.createElement("div"); barWrap.className = "bar";
@@ -699,6 +783,17 @@ function sDie(note){
   Diag.stateKey = "stateFailed"; Diag.render();
   sFailAll(new Error(note || "closed"));
 }
+function sDisconnect(){
+  /* The receiver went away mid-transfer. Do NOT destroy the peer:
+     the link stays valid, the receiver can reconnect to the same id
+     and resume; files it already verified are skipped via "have". */
+  S.conn = null;
+  stopTicker();
+  sFailAll(new Error("closed"));
+  Diag.stateKey = "stateWaiting"; Diag.render();
+  $("sendStatus").textContent = t("waitingPeer");
+  $("againBtn").classList.add("hidden");
+}
 $("createBtn").addEventListener("click", function(){
   if (!S.files.length || S.active) return;
   S.active = true; renderSendList();
@@ -721,7 +816,8 @@ $("createBtn").addEventListener("click", function(){
     Diag.stateKey = "stateWaiting"; Diag.render();
   });
   peer.on("connection", function(conn){
-    if (S.conn){ try { conn.close(); } catch (e) {} return; }
+    if (S.conn && S.conn.open){ try { conn.close(); } catch (e) {} return; }
+    if (S.conn) sDisconnect(); /* stale half-dead connection: reset, take the new one */
     S.conn = conn; wireSenderConn(conn);
   });
   peer.on("error", function(err){
@@ -747,6 +843,8 @@ function wireSenderConn(conn){
     if (!isControlMsg(data)) return;
     if (data.kind === "hello"){
       conn.send({ kind: "meta", files: sMeta() });
+    } else if (data.kind === "have"){
+      conn._have = data.indexes || [];
     } else if (data.kind === "accept"){
       sResolve("accept", true);
     } else if (data.kind === "ready"){
@@ -760,10 +858,14 @@ function wireSenderConn(conn){
     }
   });
   conn.on("close", function(){
-    if (!Diag.success) { $("sendStatus").textContent = t("errGone"); sDie("connection closed"); }
+    if (S.conn !== conn) return;
+    if (S.finished || Diag.success) return;
+    sDisconnect();
   });
   conn.on("error", function(){
-    if (!Diag.success) { $("sendStatus").textContent = t("errGeneric"); sDie("connection error"); }
+    if (S.conn !== conn) return;
+    if (S.finished || Diag.success) return;
+    sDisconnect();
   });
   sWait("accept").then(function(){
     Diag.stateKey = "stateTransfer"; Diag.startAt = Date.now(); Diag.lastSampleAt = 0; Diag.render();
@@ -777,18 +879,30 @@ function ackedThrough(idx){
   return n;
 }
 function runSend(conn){
+  /* Resume: files the receiver already verified are skipped entirely. */
+  var have = {};
+  (conn._have || []).forEach(function(ix){ have[ix] = true; });
+  var base = 0;
+  for (var i = 0; i < S.files.length; i++){
+    if (have[i]){ base += S.files[i].size; sRowUpdate(i, S.files[i].size, "ok"); }
+  }
+  if (base > 0){ Diag.movedBytes = base; Diag.render(); }
   var chain = Promise.resolve();
   S.files.forEach(function(file, i){
-    chain = chain.then(function(){ return streamFile(conn, file, i); });
+    chain = chain.then(function(){
+      if (have[i]) return;
+      return streamFile(conn, file, i);
+    });
   });
   return chain.then(function(){
     conn.send({ kind: "done" });
     stopTicker();
     Diag.success = true; Diag.stateKey = "stateDone"; Diag.render();
-    S.dead = true;
+    S.dead = true; S.finished = true;
     $("sendStatus").textContent = t("doneOk");
     $("againBtn").classList.remove("hidden");
   }).catch(function(err){
+    if (S.conn !== conn) return; /* disconnected; sDisconnect already reset the UI */
     if (!S.dead) sDie(err && err.message ? err.message : "failed");
   });
 }
@@ -805,6 +919,7 @@ function streamFile(conn, file, idx){
     }
     function step(){
       if (S.dead) return Promise.reject(new Error("closed"));
+      if (S.conn !== conn) return Promise.reject(new Error("closed"));
       if (offset >= file.size){
         var hex = hasher.digestHex();
         conn.send({ kind: "fileend", index: idx, sha256: hex });
@@ -834,7 +949,8 @@ function streamFile(conn, file, idx){
 var R = {
   peer: null, conn: null, files: [], handles: [], modes: [],
   cur: -1, hasher: null, writable: null, memParts: [], recvBytes: 0,
-  chain: Promise.resolve(), dead: false, accepted: false
+  chain: Promise.resolve(), dead: false, accepted: false,
+  have: {}, peerId: null, gotMeta: false, everAccepted: false, gen: 0
 };
 var HAS_FS = typeof window.showSaveFilePicker === "function";
 function renderRecvList(){
@@ -877,19 +993,59 @@ function initReceiver(peerId){
   $("view-send").classList.add("hidden");
   $("view-recv").classList.remove("hidden");
   $("recvFrom").textContent = t("fromPeer");
-  $("recvStatus").textContent = t("connecting");
   Diag.reset(t("summaryRoleRecv"));
+  R.peerId = peerId;
+  rConnect();
+}
+function rConnect(){
+  $("recvStatus").textContent = t("connecting");
   Diag.stateKey = "stateConnecting"; Diag.render();
   var peer = new Peer(PEER_OPTS);
   R.peer = peer;
   peer.on("open", function(){
-    var conn = peer.connect(peerId, { reliable: true });
+    var conn = peer.connect(R.peerId, { reliable: true });
     R.conn = conn; wireRecvConn(conn);
   });
   peer.on("error", function(err){
-    if (err && err.type === "peer-unavailable") rDie("sender unreachable", "errNoPeer");
+    if (err && err.type === "peer-unavailable"){
+      if (R.gotMeta) enterLostState();
+      else rDie("sender unreachable", "errNoPeer");
+    }
     else rDie(err && err.type ? err.type : "peer error", "errGeneric");
   });
+}
+function enterLostState(){
+  /* Connection dropped. Keep the completed-file set and the save
+     handles, drop the half-written current file, offer reconnect. */
+  R.gen++;
+  R.chain = Promise.resolve();
+  R.conn = null;
+  stopTicker();
+  if (R.writable){
+    try { R.writable.abort(); } catch (e) {}
+    R.writable = null;
+  }
+  R.memParts = [];
+  Diag.stateKey = "stateFailed"; Diag.render();
+  $("recvStatus").textContent = t("connLost");
+  $("reconnectBtn").classList.remove("hidden");
+}
+$("reconnectBtn").addEventListener("click", function(){
+  $("reconnectBtn").classList.add("hidden");
+  if (R.peer){ try { R.peer.destroy(); } catch (e) {} R.peer = null; }
+  rConnect();
+});
+function resumeReceive(){
+  /* Reconnect after a drop: the save targets from the first accept
+     are still stored, so no new gesture or picking is needed. */
+  $("acceptBtn").disabled = true;
+  Diag.stateKey = "stateTransfer"; Diag.render();
+  startTicker();
+  $("recvStatus").textContent = t("receiving");
+  R.conn.send({ kind: "accept" });
+  var start = 0;
+  while (start < R.files.length && R.have[start]) start++;
+  if (start < R.files.length) beginFile(start);
 }
 function wireRecvConn(conn){
   conn.on("open", function(){
@@ -898,6 +1054,7 @@ function wireRecvConn(conn){
     conn.send({ kind: "hello" });
   });
   conn.on("data", function(data){
+    if (R.conn !== conn) return;
     if (isControlMsg(data)){
       if (data.kind === "meta") onMeta(data);
       else if (data.kind === "fileend") enqueue(function(){ return finishFile(data); });
@@ -907,28 +1064,49 @@ function wireRecvConn(conn){
     enqueue(function(){ return takeChunk(data); });
   });
   conn.on("close", function(){
-    if (!R.dead && Diag.success !== true) rDie("connection closed", "errGone");
+    if (R.conn !== conn) return;
+    if (R.dead || Diag.success === true) return;
+    enterLostState();
   });
   conn.on("error", function(){
-    if (!R.dead && Diag.success !== true) rDie("connection error", "errGeneric");
+    if (R.conn !== conn) return;
+    if (R.dead || Diag.success === true) return;
+    enterLostState();
   });
 }
-function enqueue(fn){ R.chain = R.chain.then(fn).catch(function(e){ rDie(e && e.message ? e.message : "error", "errGeneric"); }); }
+function enqueue(fn){
+  var gen = R.gen;
+  R.chain = R.chain.then(function(){
+    if (gen !== R.gen) return; /* stale work from a dead connection */
+    return fn();
+  }).catch(function(e){ rDie(e && e.message ? e.message : "error", "errGeneric"); });
+}
 function onMeta(data){
   R.files = data.files || [];
+  R.gotMeta = true;
   var total = 0, big = false, i;
   for (i = 0; i < R.files.length; i++){ total += R.files[i].size; if (R.files[i].size > BIG_FILE) big = true; }
   Diag.totalBytes = total; Diag.render();
   renderRecvList();
+  /* files verified in an earlier connection keep their badges */
+  for (var k in R.have){ rBadge(+k, "ok"); rBar(+k, R.files[+k] ? R.files[+k].size : 0); }
   if (big && !HAS_FS){
     var w = $("recvWarn"); w.textContent = t("warnBig"); w.classList.remove("hidden");
+  }
+  if (R.everAccepted){
+    /* reconnect: tell the sender what we already have, then resume */
+    var idxs = [];
+    for (var j in R.have) idxs.push(+j);
+    if (idxs.length) R.conn.send({ kind: "have", indexes: idxs });
+    resumeReceive();
+    return;
   }
   $("recvStatus").textContent = t("senderReady");
   $("acceptBtn").disabled = false;
 }
 $("acceptBtn").addEventListener("click", function(){
   if (R.accepted || !R.files.length) return;
-  R.accepted = true;
+  R.accepted = true; R.everAccepted = true;
   $("acceptBtn").disabled = true;
   prepareAll().then(function(){
     Diag.stateKey = "stateTransfer"; Diag.startAt = Date.now(); Diag.lastSampleAt = 0; Diag.render();
@@ -1008,6 +1186,7 @@ function finishFile(msg){
     R.conn.send({ kind: "ack", index: i, chunks: f.totalChunks, bytes: f.size });
     R.conn.send({ kind: "verdict", index: i, ok: ok });
     if (ok){
+      R.have[i] = true;
       rBadge(i, "ok"); rBar(i, f.size);
       if (R.modes[i] === "mem") offerDownload(i);
       if (i + 1 < R.files.length) return beginFile(i + 1);
