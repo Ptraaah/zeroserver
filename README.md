@@ -4,6 +4,8 @@ Kirim file langsung dari browser ke browser. Tanpa server file, tanpa akun, tanp
 
 Send files directly from one browser to another. No file server, no account, no size cap set by any service. (English summary below.)
 
+![ZeroServer](assets/cover.webp)
+
 [Live site](https://ptraaah.github.io/zeroserver/) · [Download the latest release](https://github.com/Ptraaah/zeroserver/releases) · [Support on Trakteer](https://trakteer.id/adel_putra2)
 
 ## What it is
