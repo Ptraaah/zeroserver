@@ -39,8 +39,26 @@ ZeroServer will never add accounts, ads, or features locked behind a paywall. It
 3. The receiver opens the link, sees the file list and total size, and presses "Terima file" (Accept files). If the browser supports it, they pick where each file should be saved.
 4. Files stream device-to-device with progress, speed, and time remaining shown on both sides. While a transfer runs, the page uses the Wake Lock API to keep the screen on, so a phone falling asleep does not cut the transfer.
 5. Each file is verified with SHA-256 at the end. A green badge means the copy is identical to the original.
-6. If the connection drops mid-transfer, the receiver can reconnect to the same link. Files that already passed verification are skipped; only the file that was interrupted starts over.
+6. If the connection drops mid-transfer, the receiver can reconnect to the same link. Files that already passed verification are skipped, and on browsers that save the file to disk (Chrome's save picker, or the built-in OPFS storage) the interrupted file itself continues from the last chunk that safely landed: the stored part is re-read and re-checked against the running hash before anything new is accepted, and the final whole-file hash still has the last word. Only on browsers that can merely hold a file in memory does the interrupted file start over. Short hiccups do not end a transfer at all - the page waits them out for up to 30 seconds and shows "reconnecting" while it does.
 7. When everything arrives verified, the receiver gets a one-tap button to send a short "done, complete and verified" message back to the sender on WhatsApp.
+
+## Sending big files on the same Wi-Fi
+
+This is the case ZeroServer is built to be fastest in: two devices on one network, nothing uploaded anywhere, the file crosses at whatever the Wi-Fi can carry. Rough wall-clock times for one big file at three common local speeds:
+
+| File | 100 Mbps | 300 Mbps | 600 Mbps |
+| --- | --- | --- | --- |
+| 10 GB | about 13 min | about 4.5 min | about 2.2 min |
+| 50 GB | about 1 h 7 min | about 22 min | about 11 min |
+| 100 GB | about 2 h 13 min | about 44 min | about 22 min |
+
+Those are wire-speed numbers. A tired router, distance from it, or a phone busy doing something else adds time on top. After one real run, the test panel on your device remembers the best sustained send and receive speeds it has seen, so you can quote your own network's number instead of this table's.
+
+Three things to keep in mind before a long haul:
+
+- **Both ends need the room.** The receiving device ends up storing the whole file, so check its free space first. On browsers that save into their own storage area, ZeroServer now estimates the space before anything moves: it warns when things look tight, and refuses up front when a file plainly cannot fit, instead of dying near the end.
+- **The sender stays open the whole time.** The sender tab is the server. A two-hour transfer means two hours with that tab open and the device awake — the page holds the screen on while a transfer runs, but it cannot survive the tab being closed.
+- **Across the internet, the upload speed is the ceiling.** The same 10 GB over a typical 20 Mbps home upload takes about 67 minutes, and 100 GB takes about 11 hours, no matter how fast the Wi-Fi on either end is. Big files are a same-network game; across networks, send while you are on a call and let it take the time it takes.
 
 ## Known limits
 
@@ -67,6 +85,8 @@ MIT — see [LICENSE](LICENSE). Copyright (c) ptraaa.
 ZeroServer is a single-file, open-source web page for sending files directly between two browsers over WebRTC. No file server, no accounts, no service-imposed size cap, and an end-to-end SHA-256 integrity check on every file. The sender must stay online during the transfer; a TURN relay (since v1.3) catches most networks that cannot connect directly, but a few strict firewalls can still block a connection; Chrome/Android is the best-supported receiving browser for very large files. Self-hosting is copying one HTML file to any static host.
 
 ## Changelog
+
+**v1.5** — Built around a real failure: a 67 MB phone-to-phone send over one Wi-Fi that slowed down and died at 71%. Three fixes came straight out of it. A signalling hiccup no longer kills a running transfer, because the data channel lives independently of the signalling socket. A paused connection gets a 30-second reconnecting grace window plus a heartbeat, instead of failing at the first wobble. And an interrupted file now resumes from the last chunk that safely landed on disk instead of starting over - the stored part is re-hashed before it is trusted, and the final whole-file hash still decides. Also in this version: the send loop wakes on the channel's own drain event instead of polling on a timer, reads run one chunk ahead of sends, acknowledgements flow twice as often so the pace is set by the network rather than the code, receivers saving into browser storage get a space check before the first byte (a loud warning when it looks tight, an upfront refusal only when a file plainly cannot fit), and the connection test panel remembers the best sustained send and receive speeds the device has ever held.
 
 **v1.4** — The share card now draws a QR code of the send link next to the link itself, generated by a small library built into the page, so a phone nearby can pair with a camera point instead of a paste. While a transfer runs, a live speed and time-left estimate sits under the progress bars on both sides, measured over the last few seconds; after a reconnect the estimate restarts fresh rather than blending the dropped connection back in.
 
