@@ -162,6 +162,7 @@
       <ul class="files" id="recvList"></ul>
       <p class="sub" id="recvTotal"></p>
       <div class="warn hidden" id="recvWarn"></div>
+      <div class="warn hidden" id="spaceWarn"></div>
       <p class="status" id="recvStatus"></p>
       <span class="badge ok hidden" id="wifiBadgeR" data-i18n="wifiBadge" style="margin-bottom:6px"></span>
       <div class="hidden" id="pinBox" style="margin:10px 0">
@@ -195,9 +196,12 @@
       <tr><td class="k" data-i18n="dSpeed"></td><td class="v" id="dgSpeed">-</td></tr>
       <tr><td class="k" data-i18n="dEta"></td><td class="v" id="dgEta">-</td></tr>
       <tr><td class="k" data-i18n="dDur"></td><td class="v" id="dgDur">-</td></tr>
+      <tr><td class="k" data-i18n="dPeakSend"></td><td class="v" id="dgPeakSend">-</td></tr>
+      <tr><td class="k" data-i18n="dPeakRecv"></td><td class="v" id="dgPeakRecv">-</td></tr>
     </table>
     <div style="margin-top:12px">
       <button class="btn ghost small" id="copyTestBtn" type="button"><span data-i18n="copyTest"></span></button>
+      <button class="btn ghost small" id="peakResetBtn" type="button" style="margin-left:8px"><span data-i18n="peakReset"></span></button>
     </div>
   </div>
 
@@ -322,6 +326,15 @@ var I18N = {
     linkUsedUp: "Link sudah terpakai, tidak menerima koneksi baru.",
     qrHint: "Atau pindai kode ini pakai kamera perangkat lain untuk membuka link-nya.",
     etaIn: "perkiraan selesai dalam",
+    spaceWarn: "Ruang di perangkat tujuan kelihatannya tidak cukup. File yang masuk totalnya {need}, sedangkan ruang bebas yang terbaca cuma sekitar {free}. Kamu tetap bisa lanjut, tapi pengiriman bisa gagal di tengah jalan kalau ruangnya habis sebelum selesai.",
+    spaceNo: "Ruang di perangkat tujuan tidak cukup buat file ini, jadi penerimaan belum dimulai sama sekali. File yang masuk totalnya {need}, sedangkan ruang bebas yang terbaca cuma sekitar {free}. Kosongkan ruang dulu, atau terima pakai perangkat lain.",
+    dPeakSend: "Puncak kirim",
+    dPeakRecv: "Puncak terima",
+    peakReset: "Atur ulang puncak",
+    stateReconnect: "menyambung ulang",
+    reconnecting: "Koneksi jeda sebentar. Lagi menyambung ulang, jangan tutup halaman ini...",
+    resumeNote: "Sambungan balik lagi. File yang terputus dilanjutkan dari potongan terakhir yang sudah sampai, bukan dari nol.",
+    resumeMem: "Sambungan balik lagi. File yang terputus mulai lagi dari awal di perangkat ini.",
     pinPrompt: "Pengirim memasang PIN. Masukkan PIN 4 angka dari pengirim:",
     pinSend: "Kirim PIN",
     pinWrong: "PIN salah.",
@@ -423,6 +436,15 @@ var I18N = {
     linkUsedUp: "Link already used, accepts no new connections.",
     qrHint: "Or scan this code with another device's camera to open the link.",
     etaIn: "done in about",
+    spaceWarn: "The destination device looks short on space. The incoming files total {need}, but the free space the browser can see is only about {free}. You can still go ahead, but the transfer may fail partway if the space runs out first.",
+    spaceNo: "The destination device does not have room for these files, so the receive has not started at all. The incoming files total {need}, but the free space the browser can see is only about {free}. Free up some space first, or receive on another device.",
+    dPeakSend: "Peak send",
+    dPeakRecv: "Peak receive",
+    peakReset: "Reset peaks",
+    stateReconnect: "reconnecting",
+    reconnecting: "Connection paused for a moment. Reconnecting now, keep this page open...",
+    resumeNote: "Back again. The interrupted file continues from the last piece that safely arrived, not from zero.",
+    resumeMem: "Back again. The interrupted file starts over from the beginning on this device.",
     pinPrompt: "The sender set a PIN. Enter the 4-digit PIN from the sender:",
     pinSend: "Send PIN",
     pinWrong: "Wrong PIN.",
@@ -589,10 +611,12 @@ var Diag = {
   role: "-", stateKey: "stateIdle", pathType: null, pathDetail: "",
   totalBytes: 0, movedBytes: 0, startAt: 0, endAt: 0,
   lastSampleAt: 0, lastSampleBytes: 0, speed: 0, success: null, failNote: "",
-  reset: function(role){
-    this.role = role; this.stateKey = "stateIdle"; this.pathType = null; this.pathDetail = "";
+  isRecv: false, peakSend: 0, peakRecv: 0, lastRenderAt: 0,
+  reset: function(role, isRecv){
+    this.role = role; this.isRecv = !!isRecv;
+    this.stateKey = "stateIdle"; this.pathType = null; this.pathDetail = "";
     this.totalBytes = 0; this.movedBytes = 0; this.startAt = 0; this.endAt = 0;
-    this.lastSampleAt = 0; this.lastSampleBytes = 0; this.speed = 0; this.success = null;
+    this.lastSampleAt = 0; this.lastSampleBytes = 0; this.speed = 0; this.success = null; this.lastRenderAt = 0;
     this.failNote = ""; this.render();
   },
   render: function(){
@@ -606,6 +630,8 @@ var Diag = {
       : (this.speed > 0 && this.totalBytes ? fmtDur(remain / this.speed) : "-");
     var dur = this.startAt ? ((this.endAt || Date.now()) - this.startAt) / 1000 : 0;
     $("dgDur").textContent = this.startAt ? fmtDur(dur) : "-";
+    $("dgPeakSend").textContent = this.peakSend > 0 ? fmtBytes(this.peakSend) + "/s" : "-";
+    $("dgPeakRecv").textContent = this.peakRecv > 0 ? fmtBytes(this.peakRecv) + "/s" : "-";
     updateWifiBadge();
     renderPreflight();
     renderRateLines();
@@ -621,7 +647,12 @@ var Diag = {
       }
     } else { this.lastSampleAt = now; this.lastSampleBytes = this.movedBytes; }
     ratePush();
-    this.render();
+    /* sample() runs once per chunk on the receive path, but the panel
+       itself only needs repainting a few times a second (v1.5). Every
+       state change that matters calls render() directly as before. */
+    if (!this.lastRenderAt || now - this.lastRenderAt >= 100){
+      this.lastRenderAt = now; this.render();
+    }
   },
   summary: function(){
     var dur = this.startAt ? (((this.endAt || Date.now()) - this.startAt) / 1000) : 0;
@@ -639,6 +670,8 @@ var Diag = {
       "Transferred: " + fmtBytes(this.movedBytes),
       "Duration: " + (dur ? dur.toFixed(1) + " s" : "-"),
       "Average speed: " + (avg ? fmtBytes(avg) + "/s" : "-"),
+      "Best sustained send on this device: " + (this.peakSend ? fmtBytes(this.peakSend) + "/s" : "-"),
+      "Best sustained receive on this device: " + (this.peakRecv ? fmtBytes(this.peakRecv) + "/s" : "-"),
       "Result: " + result
     ].join("\n");
   }
@@ -663,18 +696,28 @@ function ratePush(){
   Rate.samples.push({ at: now, bytes: Diag.movedBytes });
   var cutoff = now - RATE_WINDOW_MS;
   while (Rate.samples.length > 2 && Rate.samples[1].at <= cutoff) Rate.samples.shift();
+  trackPeak();
 }
-function rateNow(){
+function rateAnchor(){
   var s = Rate.samples, n = s.length;
-  if (n < 2) return 0;
+  if (n < 2) return null;
   var last = s[n - 1], anchor = s[0], edge = last.at - RATE_WINDOW_MS, i;
   if (edge > anchor.at){
     for (i = 0; i < n - 1; i++){ if (s[i].at <= edge) anchor = s[i]; else break; }
   }
-  var dt = (last.at - anchor.at) / 1000;
+  return { first: anchor, last: last };
+}
+function rateNow(){
+  var a = rateAnchor();
+  if (!a) return 0;
+  var dt = (a.last.at - a.first.at) / 1000;
   if (dt < 1) return 0;
-  var r = (last.bytes - anchor.bytes) / dt;
+  var r = (a.last.bytes - a.first.bytes) / dt;
   return r > 0 ? r : 0;
+}
+function rateSpanMs(){
+  var a = rateAnchor();
+  return a ? (a.last.at - a.first.at) : 0;
 }
 function renderRateLines(){
   var txt = "";
@@ -689,6 +732,40 @@ function renderRateLines(){
   if (a) a.textContent = txt;
   if (b) b.textContent = txt;
 }
+
+/* ---------------- peak rate record (v1.5) ----------------
+   The best sustained pace this device has ever held, one number per
+   direction, remembered across visits so a real-device test leaves
+   behind a figure that can be quoted. "Sustained" does real work in
+   that sentence: a candidate only counts when the rolling window
+   behind it spans at least three seconds of movement, so a single
+   lucky burst never becomes the record. */
+function peakLoad(){
+  try {
+    Diag.peakSend = parseFloat(localStorage.getItem("zs-peak-send")) || 0;
+    Diag.peakRecv = parseFloat(localStorage.getItem("zs-peak-recv")) || 0;
+  } catch (e) { Diag.peakSend = 0; Diag.peakRecv = 0; }
+}
+function peakSave(){
+  try {
+    localStorage.setItem("zs-peak-send", String(Math.round(Diag.peakSend)));
+    localStorage.setItem("zs-peak-recv", String(Math.round(Diag.peakRecv)));
+  } catch (e) {}
+}
+function peakResetAll(){
+  Diag.peakSend = 0; Diag.peakRecv = 0;
+  peakSave(); Diag.render();
+}
+function trackPeak(){
+  if (!Diag.startAt || Diag.endAt || Diag.success !== null) return;
+  if (rateSpanMs() < 3000) return;
+  var r = rateNow();
+  if (r <= 0) return;
+  if (Diag.isRecv){ if (r > Diag.peakRecv){ Diag.peakRecv = r; peakSave(); } }
+  else if (r > Diag.peakSend){ Diag.peakSend = r; peakSave(); }
+}
+peakLoad();
+$("peakResetBtn").addEventListener("click", peakResetAll);
 
 /* Read the live RTCPeerConnection and classify the chosen ICE path. */
 function classifyPath(pc, done){
@@ -821,9 +898,18 @@ function ensureIce(){
   });
   return icePromise;
 }
-var CHUNK = 256 * 1024;          /* 256 KB */
-var WINDOW_BYTES = 8 * 1024 * 1024;  /* pause sending above ~8 MB unacked */
-var ACK_EVERY = 32;              /* receiver acks every 32 chunks */
+var CHUNK = 256 * 1024;          /* 256 KB, one fixed geometry for every session.
+                                    It matches the largest message a WebRTC data
+                                    channel accepts across browsers (Chrome caps a
+                                    single SCTP message at 256 KB), and all of the
+                                    ack and resume accounting is built on it. The
+                                    size also travels in the meta message, so the
+                                    two sides always agree on it explicitly. */
+var WINDOW_BYTES = 32 * 1024 * 1024; /* stop feeding a file once ~32 MB is unacked;
+                                    the ack stream below refills the window */
+var FLOW_HIGH = 4 * 1024 * 1024;     /* pause while the channel itself queues > ~4 MB */
+var FLOW_LOW = 1 * 1024 * 1024;      /* resume when it drains to ~1 MB (bufferedamountlow) */
+var ACK_EVERY = 16;              /* receiver acks every 16 chunks (4 MB) */
 var BIG_FILE = 300 * 1024 * 1024;    /* memory fallback warning threshold */
 function newPeerId(){
   var chars = "abcdefghjkmnpqrstuvwxyz23456789", s = "";
@@ -856,6 +942,60 @@ function isControlMsg(d){
          typeof d.kind === "string";
 }
 function pct(done, total){ return total > 0 ? Math.min(100, Math.round(done * 100 / total)) : 100; }
+
+/* ---------------- connection liveness (v1.5) ----------------
+   Two cheap guards against a channel that dies quietly.
+   Heartbeat: while a transfer is active, each side pings the other
+   every few seconds; any inbound traffic at all (chunks, acks,
+   pongs) counts as life. Twenty seconds of total silence while
+   bytes are supposed to be moving means the path is gone even if
+   nothing has formally closed yet, so the transfer drops into its
+   resumable lost state instead of hanging forever.
+   ICE watch: a "disconnected" ICE state is usually a hiccup (Wi-Fi
+   roaming, a radio dozing) that heals itself within seconds, so it
+   gets a 30-second grace window, shown as reconnecting, before
+   anything is given up on. Only "failed"/"closed", or a disconnect
+   that outlives the grace window, counts as a real loss. */
+var Heartbeat = {
+  iv: null, conn: null, lastRx: 0, activeFn: null, onDead: null,
+  start: function(conn, activeFn, onDead){
+    this.stop();
+    this.conn = conn; this.lastRx = Date.now();
+    this.activeFn = activeFn; this.onDead = onDead;
+    var self = this;
+    this.iv = setInterval(function(){
+      if (self.conn !== conn){ self.stop(); return; }
+      try { conn.send({ kind: "ping" }); } catch (e) {}
+      if (self.activeFn() && Date.now() - self.lastRx > 20000){
+        var cb = self.onDead; self.stop(); if (cb) cb();
+      }
+    }, 5000);
+  },
+  mark: function(){ this.lastRx = Date.now(); },
+  stop: function(){
+    if (this.iv){ clearInterval(this.iv); this.iv = null; }
+    this.conn = null;
+  }
+};
+function watchIce(conn, onPause, onBack, onGone){
+  var pc = rtcOf(conn);
+  if (!pc || typeof pc.addEventListener !== "function") return;
+  var graceTimer = null;
+  pc.addEventListener("iceconnectionstatechange", function(){
+    var st = pc.iceConnectionState;
+    if (st === "disconnected"){
+      if (!graceTimer){
+        onPause();
+        graceTimer = setTimeout(function(){ graceTimer = null; onGone(); }, 30000);
+      }
+    } else if (st === "connected" || st === "completed"){
+      if (graceTimer){ clearTimeout(graceTimer); graceTimer = null; onBack(); }
+    } else if (st === "failed" || st === "closed"){
+      if (graceTimer){ clearTimeout(graceTimer); graceTimer = null; }
+      onGone();
+    }
+  });
+}
 
 /* ---------------- wake lock ----------------
    Keep the screen on while a transfer is active so a phone going
@@ -944,7 +1084,7 @@ var S = {
   files: [], peer: null, conn: null, link: "",
   ackedFile: 0, sentFile: 0, ackedTotal: 0,
   waiters: {}, rows: [], active: false, dead: false, finished: false,
-  createdAt: 0, servedOnce: false
+  createdAt: 0, servedOnce: false, _everConnected: false
 };
 /* ---- link controls: optional PIN, one-shot, 30-minute expiry ----
    All off by default, read live from the share-card controls, so
@@ -980,7 +1120,7 @@ function sMeta(){
   var out = [];
   for (var i = 0; i < S.files.length; i++){
     var f = S.files[i];
-    out.push({ name: f.name, size: f.size, type: f.type || "", totalChunks: Math.ceil(f.size / CHUNK) });
+    out.push({ name: f.name, size: f.size, type: f.type || "", chunkSize: CHUNK, totalChunks: Math.ceil(f.size / CHUNK) });
   }
   return out;
 }
@@ -1067,7 +1207,7 @@ function sFailAll(err){
 }
 function sDie(note){
   if (S.dead) return;
-  S.dead = true; stopTicker();
+  S.dead = true; stopTicker(); Heartbeat.stop();
   Diag.success = false; Diag.failNote = note || "";
   Diag.stateKey = "stateFailed"; Diag.render();
   sFailAll(new Error(note || "closed"));
@@ -1077,7 +1217,7 @@ function sDisconnect(){
      the link stays valid, the receiver can reconnect to the same id
      and resume; files it already verified are skipped via "have". */
   S.conn = null;
-  stopTicker();
+  stopTicker(); Heartbeat.stop();
   sFailAll(new Error("closed"));
   Diag.stateKey = "stateWaiting"; Diag.render();
   $("sendStatus").textContent = t("waitingPeer");
@@ -1088,7 +1228,7 @@ $("createBtn").addEventListener("click", function(){
   if (!ICE_READY) { ensureIce().then(function(){ $("createBtn").click(); }); return; }
   S.active = true; renderSendList();
   $("pickBtn").disabled = true; $("createBtn").disabled = true;
-  Diag.reset(t("summaryRoleSend"));
+  Diag.reset(t("summaryRoleSend"), false);
   Diag.totalBytes = sTotalSize(); Diag.render();
   var peer = new Peer(newPeerId(), PEER_OPTS);
   S.peer = peer;
@@ -1116,9 +1256,20 @@ $("createBtn").addEventListener("click", function(){
     S.conn = conn; wireSenderConn(conn);
   });
   peer.on("error", function(err){
-    if (err && err.type === "unavailable-id" && !S.conn) return; /* broker hiccup; link may still work */
+    var type = err && err.type ? err.type : "peer error";
+    if (type === "unavailable-id" && !S.conn) return; /* broker hiccup; link may still work */
+    /* "network" means the signalling socket hiccuped. Once a data
+       channel exists it lives independently of that socket, so a
+       broker blip must never kill a running transfer (v1.5: this
+       exact error ended a 67 MB same-Wi-Fi send at 71%). */
+    if (type === "network" && (S.conn || S._everConnected)) return;
     $("sendStatus").textContent = t("errGeneric");
-    sDie(err && err.type ? err.type : "peer error");
+    sDie(type);
+  });
+  peer.on("disconnected", function(){
+    /* The signalling socket dropped. A live data channel is not
+       affected, but accepting a reconnect needs the socket back. */
+    try { peer.reconnect(); } catch (e) {}
   });
 });
 $("copyBtn").addEventListener("click", function(){ copyText(S.link, t("copied")); });
@@ -1130,12 +1281,32 @@ $("againBtn").addEventListener("click", function(){
 });
 function wireSenderConn(conn){
   conn.on("open", function(){
+    S._everConnected = true;
     $("sendStatus").textContent = t("connected");
     Diag.stateKey = "stateConnecting"; Diag.render();
     watchPath(rtcOf(conn));
+    watchIce(conn,
+      function(){
+        if (S.conn !== conn || S.finished) return;
+        Diag.stateKey = "stateReconnect"; Diag.render();
+        $("sendStatus").textContent = t("reconnecting");
+      },
+      function(){
+        if (S.conn !== conn || S.finished) return;
+        var sending = !!Diag.startAt;
+        Diag.stateKey = sending ? "stateTransfer" : "stateConnecting"; Diag.render();
+        $("sendStatus").textContent = sending ? t("sending") : t("connected");
+      },
+      function(){ if (S.conn === conn && !S.finished) sDisconnect(); });
+    Heartbeat.start(conn,
+      function(){ return !!(S.conn && !S.finished && !S.dead && Diag.startAt); },
+      function(){ if (S.conn === conn) sDisconnect(); });
   });
   conn.on("data", function(data){
+    Heartbeat.mark();
     if (!isControlMsg(data)) return;
+    if (data.kind === "ping"){ try { conn.send({ kind: "pong" }); } catch (e) {} return; }
+    if (data.kind === "pong") return;
     if (data.kind === "hello"){
       if (sLinkClosed()){ try { conn.close(); } catch (e) {} return; }
       var want = sPin();
@@ -1157,6 +1328,9 @@ function wireSenderConn(conn){
       conn.send({ kind: "meta", files: sMeta() });
     } else if (data.kind === "have"){
       conn._have = data.indexes || [];
+      conn._havePartial = (data.partial && data.partial.chunkSize === CHUNK &&
+        typeof data.partial.chunks === "number" && data.partial.chunks > 0)
+        ? data.partial : null;
     } else if (data.kind === "accept"){
       sResolve("accept", true);
     } else if (data.kind === "ready"){
@@ -1192,19 +1366,27 @@ function ackedThrough(idx){
   return n;
 }
 function runSend(conn){
-  /* Resume: files the receiver already verified are skipped entirely. */
+  /* Resume: files the receiver already verified are skipped entirely,
+     and the interrupted file itself continues from the chunk the
+     receiver durably holds (v1.5), not from zero. */
   var have = {};
   (conn._have || []).forEach(function(ix){ have[ix] = true; });
+  var partial = conn._havePartial || null;
   var base = 0;
   for (var i = 0; i < S.files.length; i++){
     if (have[i]){ base += S.files[i].size; sRowUpdate(i, S.files[i].size, "ok"); }
+  }
+  if (partial && !have[partial.index] && S.files[partial.index]){
+    base += Math.min(partial.chunks * CHUNK, S.files[partial.index].size);
   }
   if (base > 0){ Diag.movedBytes = base; Diag.render(); }
   var chain = Promise.resolve();
   S.files.forEach(function(file, i){
     chain = chain.then(function(){
       if (have[i]) return;
-      return streamFile(conn, file, i);
+      var sc = (partial && partial.index === i) ? partial.chunks : 0;
+      if (sc * CHUNK > file.size) sc = Math.floor(file.size / CHUNK);
+      return streamFile(conn, file, i, sc);
     });
   });
   return chain.then(function(){
@@ -1223,16 +1405,61 @@ function runSend(conn){
     if (!S.dead) sDie(err && err.message ? err.message : "failed");
   });
 }
-function streamFile(conn, file, idx){
-  S.ackedFile = 0; S.sentFile = 0;
-  sRowUpdate(idx, 0, "active");
-  return sWait("ready:" + idx).then(function(){
+function streamFile(conn, file, idx, startChunk){
+  S.ackedFile = (startChunk || 0) * CHUNK; S.sentFile = S.ackedFile;
+  sRowUpdate(idx, S.ackedFile, "active");
+  return sWait("ready:" + idx).then(function(){ return attempt(startChunk || 0, false); });
+
+  function attempt(fromChunk, isRetry){
+    S.ackedFile = fromChunk * CHUNK; S.sentFile = S.ackedFile;
+    sRowUpdate(idx, S.ackedFile, "active");
     var hasher = new SHA256.Hasher();
     var offset = 0;
+    var nextRead = null;   /* the next chunk's read, started one step early */
+    function readAt(off){
+      var end = Math.min(off + CHUNK, file.size);
+      return file.slice(off, end).arrayBuffer().then(function(buf){
+        return { buf: buf, end: end };
+      });
+    }
+    function prime(){
+      /* Fold the prefix the receiver already holds into the hash
+         locally, without sending a byte of it: the final digest has
+         to cover the whole file, not just the tail sent now. */
+      var target = fromChunk * CHUNK;
+      if (offset >= target) return Promise.resolve();
+      return readAt(offset).then(function(part){
+        hasher.update(new Uint8Array(part.buf));
+        offset = part.end;
+        return prime();
+      });
+    }
     function windowFull(){
       var dc = underlyingDC(conn);
       var buffered = dc ? dc.bufferedAmount : 0;
-      return (S.sentFile - S.ackedFile) > WINDOW_BYTES || buffered > WINDOW_BYTES;
+      return (S.sentFile - S.ackedFile) > WINDOW_BYTES || buffered > FLOW_HIGH;
+    }
+    function waitDrain(){
+      /* Wake on the channel's own bufferedamountlow event the moment
+         its queue drains, instead of waking on a fixed timer and
+         finding out late (v1.5). A slow safety timer covers browsers
+         where the event never arrives, and the step that follows
+         re-checks everything, so a spurious wake costs nothing. */
+      return new Promise(function(res){
+        var dc = underlyingDC(conn);
+        if (!windowFull()){ res(); return; }
+        if (!dc || typeof dc.addEventListener !== "function"){ setTimeout(res, 25); return; }
+        try { dc.bufferedAmountLowThreshold = FLOW_LOW; } catch (e) {}
+        var done = false;
+        function wake(){
+          if (done) return; done = true;
+          try { dc.removeEventListener("bufferedamountlow", wake); } catch (e) {}
+          res();
+        }
+        try { dc.addEventListener("bufferedamountlow", wake); }
+        catch (e) { setTimeout(wake, 25); return; }
+        setTimeout(wake, 150);
+      });
     }
     function step(){
       if (S.dead) return Promise.reject(new Error("closed"));
@@ -1242,22 +1469,34 @@ function streamFile(conn, file, idx){
         conn.send({ kind: "fileend", index: idx, sha256: hex });
         return sWait("verdict:" + idx).then(function(v){
           if (v && v.ok){ sRowUpdate(idx, file.size, "ok"); return; }
+          if (v && v.retry && fromChunk > 0 && !isRetry){
+            /* The stored prefix did not check out after all; the
+               receiver has thrown its copy away and readied itself
+               for the whole file again. */
+            return sWait("ready:" + idx).then(function(){ return attempt(0, true); });
+          }
           sRowUpdate(idx, S.ackedFile, "bad");
           $("sendStatus").textContent = t("mismatch");
           throw new Error("hash mismatch");
         });
       }
-      if (windowFull()) return sleep(40).then(step);
-      var end = Math.min(offset + CHUNK, file.size);
-      return file.slice(offset, end).arrayBuffer().then(function(buf){
-        hasher.update(new Uint8Array(buf));
-        conn.send(buf);
-        offset = end; S.sentFile = offset;
+      if (!nextRead) nextRead = readAt(offset);
+      return nextRead.then(function(part){
+        nextRead = null;
+        hasher.update(new Uint8Array(part.buf));
+        try { conn.send(part.buf); }
+        catch (e) { sDisconnect(); throw new Error("closed"); }
+        offset = part.end; S.sentFile = offset;
+        /* Start reading the next chunk before any flow-control wait,
+           so the time the storage needs overlaps the time the channel
+           needs to drain instead of adding to it. */
+        if (offset < file.size) nextRead = readAt(offset);
+        if (windowFull()) return waitDrain().then(step);
         return step();
       });
     }
-    return step();
-  });
+    return prime().then(step);
+  }
 }
 
 /* ================================================================
@@ -1267,7 +1506,9 @@ var R = {
   peer: null, conn: null, files: [], handles: [], modes: [],
   cur: -1, hasher: null, writable: null, memParts: [], recvBytes: 0,
   chain: Promise.resolve(), dead: false, accepted: false,
-  have: {}, peerId: null, gotMeta: false, everAccepted: false, gen: 0,
+  have: {}, peerId: null, gotMeta: false, everAccepted: false, gen: 0, spaceState: "ok",
+  partialIndex: -1, partial: null, resumePrepped: -1, resumedChunks: 0,
+  verifiedChunks: 0, restartedMid: false, sinkSettled: null,
   pin: "", opfsRoot: null, opfsNames: [], opfsHandles: []
 };
 var HAS_FS = typeof window.showSaveFilePicker === "function";
@@ -1343,7 +1584,7 @@ function rBar(i, doneBytes){
 }
 function rDie(note, msgKey){
   if (R.dead) return;
-  R.dead = true; stopTicker();
+  R.dead = true; stopTicker(); Heartbeat.stop();
   Diag.success = false; Diag.failNote = note || "";
   Diag.stateKey = "stateFailed"; Diag.render();
   var box = $("recvErr"); box.textContent = t(msgKey || "errGeneric");
@@ -1353,7 +1594,7 @@ function initReceiver(peerId){
   $("view-send").classList.add("hidden");
   $("view-recv").classList.remove("hidden");
   $("recvFrom").textContent = t("fromPeer");
-  Diag.reset(t("summaryRoleRecv"));
+  Diag.reset(t("summaryRoleRecv"), true);
   R.peerId = peerId;
   opfsSweep();
   rConnect();
@@ -1369,26 +1610,42 @@ function rConnect(){
     R.conn = conn; wireRecvConn(conn);
   });
   peer.on("error", function(err){
-    if (err && err.type === "peer-unavailable"){
+    var type = err && err.type ? err.type : "peer error";
+    if (type === "peer-unavailable"){
       if (R.gotMeta) enterLostState();
       else rDie("sender unreachable", "errNoPeer");
     }
-    else rDie(err && err.type ? err.type : "peer error", "errGeneric");
+    /* A signalling-socket blip once the transfer is set up is not
+       the end of anything: the resumable lost state is the worst
+       it gets (v1.5). */
+    else if (type === "network" && R.gotMeta) enterLostState();
+    else rDie(type, "errGeneric");
   });
 }
 function enterLostState(){
-  /* Connection dropped. Keep the completed-file set and the save
-     handles, drop the half-written current file, offer reconnect. */
+  /* Connection dropped. Keep the completed-file set, the save
+     handles, and whatever part of the current file is already
+     committed on disk - after a reconnect it continues from that
+     chunk instead of from zero (v1.5). Only the memory sink loses
+     its half-written file, because RAM is all it ever had. */
   R.gen++;
   R.chain = Promise.resolve();
   R.conn = null;
-  stopTicker();
+  stopTicker(); Heartbeat.stop();
+  R.restartedMid = (R.cur >= 0 && !R.have[R.cur] && R.recvBytes > 0);
+  R.partialIndex = (R.cur >= 0 && !R.have[R.cur]) ? R.cur : -1;
   if (R.writable){
-    try { R.writable.abort(); } catch (e) {}
-    R.writable = null;
-  }
+    var w = R.writable; R.writable = null;
+    /* Commit the arrived chunks rather than aborting them away.
+       prepareResume waits for this to settle before it trusts the
+       byte count it finds on disk. */
+    try {
+      R.sinkSettled = w.close().catch(function(){
+        try { return w.abort(); } catch (e) {}
+      });
+    } catch (e) { R.sinkSettled = Promise.resolve(); }
+  } else R.sinkSettled = Promise.resolve();
   R.memParts = [];
-  if (R.cur >= 0 && R.modes[R.cur] === "opfs") opfsDiscard(R.cur);
   $("pinBox").classList.add("hidden");
   Diag.stateKey = "stateFailed"; Diag.render();
   $("recvStatus").textContent = t("connLost");
@@ -1406,7 +1663,8 @@ function resumeReceive(){
   Diag.stateKey = "stateTransfer"; Diag.render();
   rateReset();
   startTicker();
-  $("recvStatus").textContent = t("receiving");
+  $("recvStatus").textContent = R.partial ? t("resumeNote")
+    : (R.restartedMid ? t("resumeMem") : t("receiving"));
   R.conn.send({ kind: "accept" });
   var start = 0;
   while (start < R.files.length && R.have[start]) start++;
@@ -1416,11 +1674,29 @@ function wireRecvConn(conn){
   conn.on("open", function(){
     $("recvStatus").textContent = t("receivingWait");
     watchPath(rtcOf(conn));
+    watchIce(conn,
+      function(){
+        if (R.conn !== conn || R.dead) return;
+        Diag.stateKey = "stateReconnect"; Diag.render();
+        $("recvStatus").textContent = t("reconnecting");
+      },
+      function(){
+        if (R.conn !== conn || R.dead) return;
+        Diag.stateKey = R.everAccepted ? "stateTransfer" : "stateConnecting"; Diag.render();
+        $("recvStatus").textContent = R.everAccepted ? t("receiving") : t("receivingWait");
+      },
+      function(){ if (R.conn === conn) enterLostState(); });
+    Heartbeat.start(conn,
+      function(){ return !!(R.conn && R.everAccepted && !R.dead && Diag.success !== true); },
+      function(){ if (R.conn === conn) enterLostState(); });
     conn.send({ kind: "hello", pin: R.pin || "" });
   });
   conn.on("data", function(data){
     if (R.conn !== conn) return;
+    Heartbeat.mark();
     if (isControlMsg(data)){
+      if (data.kind === "ping"){ try { conn.send({ kind: "pong" }); } catch (e) {} return; }
+      if (data.kind === "pong") return;
       if (data.kind === "pinreq") onPinReq();
       else if (data.kind === "pinerror") onPinErr(data);
       else if (data.kind === "meta") onMeta(data);
@@ -1475,6 +1751,56 @@ $("pinBtn").addEventListener("click", function(){
 $("pinInput").addEventListener("input", function(){
   this.value = this.value.replace(/\D/g, "").slice(0, 4);
 });
+/* ---------------- storage pre-check (v1.5) ----------------
+   Before a single byte moves, compare what still has to land on
+   this device against the room the browser can see. Only the OPFS
+   sink is judged this way: the origin quota behind
+   navigator.storage.estimate() is exactly the space OPFS draws
+   from. Files saved through the system picker go wherever the user
+   pointed them, which no estimate can see, and the memory sink
+   already carries its own size warning.
+   Browser estimates are fuzzy - they are rounded, pooled, and
+   shift as the device fills - so they are never the sole reason
+   for a hard stop. The receive is only refused up front when the
+   mismatch is unambiguous: less free room than half of what has to
+   land. In between, the warning is loud and the choice stays with
+   the person holding the device. */
+function spaceVerdict(need, free){
+  if (free == null || !isFinite(free)) return "ok";   /* no reading, no opinion */
+  if (free >= need) return "ok";
+  if (free * 2 < need) return "no";
+  return "warn";
+}
+function spaceRemaining(){
+  var n = 0;
+  for (var i = 0; i < R.files.length; i++){ if (!R.have[i]) n += R.files[i].size; }
+  return n;
+}
+function checkSpace(){
+  var need = spaceRemaining();
+  var sink = HAS_FS ? "fs" : (HAS_OPFS ? "opfs" : "mem");
+  if (sink !== "opfs" || !navigator.storage || !navigator.storage.estimate){
+    return Promise.resolve({ state: "ok", free: null, need: need });
+  }
+  return navigator.storage.estimate().then(function(est){
+    var free = (est && typeof est.quota === "number")
+      ? Math.max(0, est.quota - (est.usage || 0)) : null;
+    return { state: spaceVerdict(need, free), free: free, need: need };
+  }).catch(function(){ return { state: "ok", free: null, need: need }; });
+}
+function applySpaceUi(r){
+  var box = $("spaceWarn");
+  R.spaceState = r.state;
+  if (r.state === "ok"){ box.classList.add("hidden"); return; }
+  var msg = t(r.state === "no" ? "spaceNo" : "spaceWarn")
+    .replace("{need}", fmtBytes(r.need)).replace("{free}", fmtBytes(r.free || 0));
+  box.textContent = msg;
+  box.classList.remove("hidden");
+  if (r.state === "no"){
+    $("acceptBtn").disabled = true;
+    $("recvStatus").textContent = msg;
+  }
+}
 function onMeta(data){
   R.files = data.files || [];
   R.gotMeta = true;
@@ -1489,16 +1815,24 @@ function onMeta(data){
   if (big && !HAS_FS && !HAS_OPFS){
     var w = $("recvWarn"); w.textContent = t("warnBig"); w.classList.remove("hidden");
   }
-  if (R.everAccepted){
-    /* reconnect: tell the sender what we already have, then resume */
-    var idxs = [];
-    for (var j in R.have) idxs.push(+j);
-    if (idxs.length) R.conn.send({ kind: "have", indexes: idxs });
-    resumeReceive();
-    return;
-  }
-  $("recvStatus").textContent = t("senderReady");
-  $("acceptBtn").disabled = false;
+  checkSpace().then(function(r){
+    applySpaceUi(r);
+    if (r.state === "no") return;   /* refused before any byte moves */
+    if (R.everAccepted){
+      /* reconnect: work out how much of the interrupted file is
+         durably stored, tell the sender, then resume */
+      return prepareResume().then(function(){
+        var idxs = [];
+        for (var j in R.have) idxs.push(+j);
+        var msg = { kind: "have", indexes: idxs };
+        if (R.partial && R.partial.chunks > 0) msg.partial = R.partial;
+        R.conn.send(msg);
+        resumeReceive();
+      });
+    }
+    $("recvStatus").textContent = t("senderReady");
+    $("acceptBtn").disabled = false;
+  });
 }
 $("acceptBtn").addEventListener("click", function(){
   if (R.accepted || !R.files.length) return;
@@ -1539,8 +1873,100 @@ function prepareAll(){
   });
   return chain;
 }
+/* ---------------- chunk-level resume (v1.5) ----------------
+   Disk-backed sinks (File System Access and OPFS) can continue an
+   interrupted file from the last chunk that actually landed. The
+   writable streams behind both APIs keep writes in an uncommitted
+   buffer that only close() makes durable, so during a receive the
+   sink is committed at every acknowledgement boundary, and losing
+   the connection closes (commits) instead of aborting. On reconnect
+   the stored prefix is re-read and re-hashed into a fresh running
+   hash before its length is reported to the sender, so the resume
+   point always matches bytes verifiably on disk - and the final
+   whole-file hash keeps the last word: if a resumed file fails it,
+   the file is taken once more from zero. The memory sink cannot do
+   any of this and simply restarts the interrupted file. */
+function discardSink(i){
+  if (R.modes[i] === "opfs") opfsDiscard(i);
+  /* fs: the fresh createWritable() in beginFile truncates anyway */
+}
+function openAppend(i, pos){
+  var fh = (R.modes[i] === "fs") ? R.handles[i] : R.opfsHandles[i];
+  return fh.createWritable({ keepExistingData: true }).then(function(w){
+    R.writable = w;
+    function atPos(){ if (pos > 0 && w.seek) return w.seek(pos); }
+    if (pos > 0 && w.truncate) return w.truncate(pos).then(atPos);
+    return atPos();
+  });
+}
+function commitSink(){
+  var i = R.cur, w = R.writable;
+  if (!w) return Promise.resolve();
+  R.writable = null;
+  return w.close().then(function(){
+    return openAppend(i, R.recvBytes);
+  }).catch(function(){
+    return openAppend(i, R.recvBytes).catch(function(){
+      rDie("sink lost", "errGeneric");
+    });
+  });
+}
+function prepareResume(){
+  R.partial = null;
+  var p = R.partialIndex;
+  if (p == null || p < 0 || R.have[p]) return Promise.resolve();
+  var f = R.files[p];
+  if (!f) return Promise.resolve();
+  if (R.modes[p] !== "fs" && R.modes[p] !== "opfs") return Promise.resolve();
+  var fh = (R.modes[p] === "fs") ? R.handles[p] : R.opfsHandles[p];
+  if (!fh) return Promise.resolve();
+  var cs = f.chunkSize || CHUNK;
+  return (R.sinkSettled || Promise.resolve()).then(function(){
+    return fh.getFile();
+  }).then(function(diskFile){
+    var chunks = Math.floor(diskFile.size / cs);
+    if (chunks <= 0) return;
+    var target = chunks * cs;
+    var hasher = new SHA256.Hasher();
+    var off = 0;
+    function readStep(){
+      if (off >= target) return Promise.resolve();
+      var end = Math.min(off + cs, target);
+      return diskFile.slice(off, end).arrayBuffer().then(function(b){
+        hasher.update(new Uint8Array(b));
+        off = end;
+        return readStep();
+      });
+    }
+    return readStep().then(function(){
+      return openAppend(p, target).then(function(){
+        R.hasher = hasher;
+        R.recvBytes = target;
+        R.verifiedChunks = chunks;
+        R.resumePrepped = p;
+        R.resumedChunks = chunks;
+        R.partial = { index: p, chunks: chunks, chunkSize: cs };
+      });
+    });
+  }).catch(function(){
+    /* The stored prefix cannot be trusted after all: drop it and
+       let the file start fresh in beginFile. */
+    discardSink(p);
+    R.partial = null;
+  });
+}
 function beginFile(i){
-  R.cur = i; R.recvBytes = 0; R.memParts = [];
+  R.cur = i;
+  if (R.resumePrepped === i){
+    /* prepareResume already restored the running hash, the byte
+       count and an append-ready sink for this exact file. */
+    R.resumePrepped = -1;
+    rBadge(i, "active");
+    R.conn.send({ kind: "ready", index: i });
+    return Promise.resolve();
+  }
+  R.recvBytes = 0; R.memParts = [];
+  R.verifiedChunks = 0; R.resumedChunks = 0;
   R.hasher = new SHA256.Hasher();
   rBadge(i, "active");
   var openWrite;
@@ -1567,11 +1993,21 @@ function takeChunk(data){
     Diag.sample();
     rBar(R.cur, R.recvBytes);
     var writing = R.writable ? R.writable.write(u8) : (R.memParts.push(u8), Promise.resolve());
-    var chunksDone = Math.round(R.recvBytes / CHUNK);
+    var cs = (R.files[R.cur] && R.files[R.cur].chunkSize) || CHUNK;
+    var chunksDone = Math.round(R.recvBytes / cs);
     if (chunksDone > 0 && chunksDone % ACK_EVERY === 0){
       R.conn.send({ kind: "ack", index: R.cur, chunks: chunksDone, bytes: R.recvBytes });
     }
-    return writing;
+    return writing.then(function(){
+      /* A chunk only counts as held once its write has landed. At
+         every ack boundary on a disk sink, commit the stream so
+         the count is durable, not just buffered (v1.5). */
+      R.verifiedChunks = Math.floor(R.recvBytes / cs);
+      if (R.writable && (R.modes[R.cur] === "fs" || R.modes[R.cur] === "opfs") &&
+          chunksDone > 0 && chunksDone % ACK_EVERY === 0){
+        return commitSink();
+      }
+    });
   });
 }
 function movedThrough(idx){
@@ -1589,14 +2025,23 @@ function finishFile(msg){
     var ok = (hex === msg.sha256);
     /* make sure the sender window sees full receipt before the verdict */
     R.conn.send({ kind: "ack", index: i, chunks: f.totalChunks, bytes: f.size });
-    R.conn.send({ kind: "verdict", index: i, ok: ok });
     if (ok){
+      R.conn.send({ kind: "verdict", index: i, ok: true });
       R.have[i] = true;
       rBadge(i, "ok"); rBar(i, f.size);
       if (R.modes[i] === "mem") offerDownload(i);
       else if (R.modes[i] === "opfs") offerDownloadOpfs(i);
       if (i + 1 < R.files.length) return beginFile(i + 1);
+    } else if (R.resumedChunks > 0){
+      /* A resumed file whose stored prefix did not check out: throw
+         this copy away and take the file once more from zero,
+         instead of failing the whole transfer over it (v1.5). */
+      R.conn.send({ kind: "verdict", index: i, ok: false, retry: true });
+      discardSink(i);
+      R.resumedChunks = 0;
+      return beginFile(i);
     } else {
+      R.conn.send({ kind: "verdict", index: i, ok: false });
       rBadge(i, "bad");
       if (R.modes[i] === "opfs") opfsDiscard(i); /* never keep a corrupt file */
       var box = $("recvErr"); box.textContent = t("mismatch"); box.classList.remove("hidden");
@@ -1635,7 +2080,7 @@ function offerDownloadOpfs(i){
   }).catch(function(){});
 }
 function onAllDone(){
-  stopTicker();
+  stopTicker(); Heartbeat.stop();
   Diag.success = true; Diag.stateKey = "stateDone"; Diag.render();
   R.dead = true;
   $("recvStatus").textContent = t("doneRecv");
