@@ -95,3 +95,7 @@ ZeroServer is a single-file, open-source web page for sending files directly bet
 **v1.1** — Wake Lock keeps the screen on during a transfer; send a whole folder at once; Open Graph / Twitter link previews; a "share this tool" button; resume after reconnect — if the connection drops, the receiver can reconnect to the same link and already-verified files are skipped instead of resent.
 
 **v1.0** — First release: one-link peer-to-peer file transfer with per-file SHA-256 verification and a connection-test panel.
+
+---
+
+Also by ptraaa: [Sifu Android Lag Fix](https://github.com/Ptraaah/sifu-android-lag-fix) - a small free app that makes Sifu on Android run lighter on low-end and mid-range phones.
